@@ -45,35 +45,87 @@ export default function WorkoutScannerApp() {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
 
-      // Request camera permission and stream
-      const stream = await navigator.mediaDevices.getUserMedia({
+      console.log('Requesting camera access...');
+      
+      // Request rear camera specifically
+      const constraints = {
         video: {
-          facingMode: 'environment',
+          facingMode: { exact: 'environment' }, // Force rear camera
           width: { ideal: 1280, min: 640 },
           height: { ideal: 720, min: 480 }
         }
-      });
+      };
 
-      if (videoRef.current) {
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (exactError) {
+        console.log('Exact rear camera failed, trying general environment...');
+        // Fallback to general environment camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 }
+          }
+        });
+      }
+
+      console.log('Camera stream obtained:', stream);
+
+      if (videoRef.current && stream) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         
-        // Wait for video to be ready
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play().catch(console.error);
-        };
+        // Force video properties
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('webkit-playsinline', 'true');
+        videoRef.current.muted = true;
+        
+        // Wait for video to load and play
+        const playPromise = new Promise((resolve, reject) => {
+          videoRef.current.onloadedmetadata = async () => {
+            console.log('Video metadata loaded');
+            try {
+              await videoRef.current.play();
+              console.log('Video playing');
+              resolve();
+            } catch (playError) {
+              console.error('Play error:', playError);
+              reject(playError);
+            }
+          };
+          
+          // Timeout after 5 seconds
+          setTimeout(() => reject(new Error('Video load timeout')), 5000);
+        });
+        
+        await playPromise;
       }
       
       setIsScanning(true);
-      showNotification('Camera ready 📸', 'success');
+      showNotification('Rear camera ready 📸', 'success');
     } catch (error) {
       console.error('Camera error:', error);
       if (error.name === 'NotAllowedError') {
         showNotification('Camera permission denied. Please allow camera access.', 'error');
-      } else if (error.name === 'NotFoundError') {
-        showNotification('No camera found. Use manual input instead.', 'error');
+      } else if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
+        showNotification('Rear camera not available. Trying any camera...', 'error');
+        // Try any available camera as last resort
+        try {
+          const anyStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (videoRef.current) {
+            videoRef.current.srcObject = anyStream;
+            streamRef.current = anyStream;
+            await videoRef.current.play();
+            setIsScanning(true);
+            showNotification('Camera ready (front) 📸', 'success');
+          }
+        } catch (fallbackError) {
+          showNotification('No camera available - use manual input', 'error');
+        }
       } else {
-        showNotification('Camera unavailable - use manual input', 'error');
+        showNotification('Camera error - use manual input', 'error');
       }
     }
   };
@@ -364,11 +416,16 @@ export default function WorkoutScannerApp() {
                         autoPlay
                         playsInline
                         muted
+                        webkit-playsinline="true"
                         className="w-full h-full object-cover"
                         style={{ 
-                          transform: 'scaleX(-1)',
-                          backgroundColor: '#000'
+                          backgroundColor: '#000',
+                          minHeight: '200px'
                         }}
+                        onLoadStart={() => console.log('Video load started')}
+                        onLoadedData={() => console.log('Video data loaded')}
+                        onPlay={() => console.log('Video playing')}
+                        onError={(e) => console.error('Video error:', e)}
                       />
                       <div className="absolute inset-0 border-4 border-purple-400 rounded-2xl pointer-events-none">
                         <div className="absolute top-4 left-4 right-4 h-1 bg-purple-400 rounded-full animate-pulse"></div>
