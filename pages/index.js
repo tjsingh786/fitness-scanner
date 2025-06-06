@@ -12,6 +12,15 @@ export default function WorkoutScannerApp() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
+  // Cleanup video stream on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
@@ -19,16 +28,32 @@ export default function WorkoutScannerApp() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
+      // Stop any existing stream first
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Force video to play
+        await videoRef.current.play();
         streamRef.current = stream;
       }
+      
       setIsScanning(true);
       showNotification('Camera ready 📸', 'success');
     } catch (error) {
+      console.error('Camera error:', error);
       showNotification('Camera unavailable - use manual input', 'error');
     }
   };
@@ -37,6 +62,9 @@ export default function WorkoutScannerApp() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setIsScanning(false);
   };
@@ -243,11 +271,19 @@ export default function WorkoutScannerApp() {
             <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
               <div className="aspect-video bg-black/30 rounded-2xl mb-4 overflow-hidden relative">
                 {isScanning ? (
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    className="w-full h-full object-cover"
-                  />
+                  <>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                      style={{ transform: 'scaleX(-1)' }}
+                    />
+                    <div className="absolute inset-0 border-4 border-purple-400 rounded-2xl">
+                      <div className="absolute top-4 left-4 right-4 h-1 bg-purple-400 rounded-full animate-pulse"></div>
+                    </div>
+                  </>
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -256,18 +292,13 @@ export default function WorkoutScannerApp() {
                     </div>
                   </div>
                 )}
-                {isScanning && (
-                  <div className="absolute inset-0 border-4 border-purple-400 rounded-2xl">
-                    <div className="absolute top-4 left-4 right-4 h-1 bg-purple-400 rounded-full animate-pulse"></div>
-                  </div>
-                )}
               </div>
 
               <div className="flex gap-3">
                 {!isScanning ? (
                   <button
                     onClick={startCamera}
-                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg"
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5 transition-all"
                   >
                     <Camera size={20} />
                     Start Camera
@@ -276,14 +307,14 @@ export default function WorkoutScannerApp() {
                   <>
                     <button
                       onClick={simulateOCR}
-                      className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg"
+                      className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-green-500/25 hover:-translate-y-0.5 transition-all"
                     >
                       <Target size={20} />
                       Scan Now
                     </button>
                     <button
                       onClick={stopCamera}
-                      className="px-6 bg-red-500 text-white py-4 rounded-2xl font-semibold"
+                      className="px-6 bg-red-500 text-white py-4 rounded-2xl font-semibold hover:bg-red-600 transition-all"
                     >
                       Stop
                     </button>
@@ -303,13 +334,13 @@ export default function WorkoutScannerApp() {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Enter workout (e.g., 'Bench Press 3x10')"
-                className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-2xl p-4 mb-4 resize-none focus:outline-none focus:border-purple-400"
+                className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-2xl p-4 mb-4 resize-none focus:outline-none focus:border-purple-400 transition-colors"
                 rows={4}
               />
               
               <button
                 onClick={() => parseWorkoutText(inputText)}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg"
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-blue-500/25 hover:-translate-y-0.5 transition-all"
               >
                 <Plus size={20} />
                 Create Workout
@@ -350,7 +381,7 @@ export default function WorkoutScannerApp() {
                   {workouts.map((workout, index) => (
                     <div
                       key={workout.id}
-                      className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border transition-all duration-200 ${
+                      className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border transition-all duration-200 hover:translate-x-1 ${
                         workout.isActive 
                           ? 'border-green-400/50 bg-green-500/10' 
                           : 'border-white/20'
@@ -398,7 +429,7 @@ export default function WorkoutScannerApp() {
                               className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
                                 workout.isActive
                                   ? 'bg-green-500/20 text-green-400 border border-green-400/30'
-                                  : 'bg-blue-500 text-white shadow-lg hover:bg-blue-600'
+                                  : 'bg-blue-500 text-white shadow-lg hover:bg-blue-600 hover:-translate-y-0.5'
                               }`}
                             >
                               <Play size={16} />
@@ -408,7 +439,7 @@ export default function WorkoutScannerApp() {
                             <button
                               onClick={() => completeSet(workout.id)}
                               disabled={!workout.isActive}
-                              className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600 hover:-translate-y-0.5 transition-all"
                             >
                               <CheckCircle size={16} />
                               Complete
@@ -425,7 +456,7 @@ export default function WorkoutScannerApp() {
                         
                         <button
                           onClick={() => resetExercise(workout.id)}
-                          className="px-4 bg-white/10 text-white py-3 rounded-xl border border-white/20"
+                          className="px-4 bg-white/10 text-white py-3 rounded-xl border border-white/20 hover:bg-white/20 transition-all"
                         >
                           <RotateCcw size={16} />
                         </button>
@@ -441,7 +472,7 @@ export default function WorkoutScannerApp() {
                 <p className="text-white/60 mb-6">Scan or create a workout to get started</p>
                 <button
                   onClick={() => setActiveTab('scanner')}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-2xl font-semibold"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-2xl font-semibold hover:shadow-purple-500/25 hover:-translate-y-0.5 transition-all"
                 >
                   Create Workout
                 </button>
