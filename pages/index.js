@@ -13,14 +13,13 @@ export default function WorkoutScannerApp() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [tesseractLoaded, setTesseractLoaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Initialize Tesseract when component mounts
   useEffect(() => {
-    // Check if Tesseract is available
     if (typeof window !== 'undefined' && window.Tesseract) {
       setTesseractLoaded(true);
     }
@@ -44,12 +43,10 @@ export default function WorkoutScannerApp() {
     try {
       console.log('Starting camera...');
       
-      // Stop any existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
 
-      // Simple, reliable camera request
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -61,21 +58,16 @@ export default function WorkoutScannerApp() {
       console.log('Stream obtained:', stream);
 
       if (videoRef.current) {
-        // Clear any existing source
         videoRef.current.srcObject = null;
-        
-        // Set new stream
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         
-        // Simple play attempt
         setTimeout(async () => {
           try {
             await videoRef.current.play();
             console.log('Video playing successfully');
           } catch (playError) {
             console.log('Play error, trying again...', playError);
-            // Try playing again after a short delay
             setTimeout(() => {
               videoRef.current.play().catch(console.error);
             }, 500);
@@ -103,6 +95,54 @@ export default function WorkoutScannerApp() {
     setIsScanning(false);
   };
 
+  const uploadPhoto = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showNotification('Please select an image file', 'error');
+      return;
+    }
+
+    setIsUploading(true);
+    showNotification('Processing image... 📖', 'info');
+
+    try {
+      if (tesseractLoaded && window.Tesseract) {
+        const { data: { text } } = await window.Tesseract.recognize(file, 'eng', {
+          logger: m => console.log(m)
+        });
+        
+        console.log('OCR Result from upload:', text);
+        
+        if (text.trim()) {
+          setInputText(text.trim());
+          parseWorkoutText(text.trim());
+          setActiveTab('workout');
+          showNotification('Photo scanned successfully! 🎉', 'success');
+        } else {
+          showNotification('No text found in image. Try another photo.', 'error');
+        }
+      } else {
+        showNotification('OCR not ready. Using demo scan...', 'info');
+        simulateOCR();
+      }
+    } catch (error) {
+      console.error('Upload OCR Error:', error);
+      showNotification('Failed to process image. Using demo scan...', 'error');
+      simulateOCR();
+    } finally {
+      setIsUploading(false);
+      event.target.value = '';
+    }
+  };
+
   const captureAndScan = async () => {
     if (!videoRef.current || !tesseractLoaded) {
       showNotification('OCR not ready. Using demo scan...', 'info');
@@ -114,7 +154,6 @@ export default function WorkoutScannerApp() {
     showNotification('Scanning text... 📖', 'info');
 
     try {
-      // Create canvas to capture video frame
       const canvas = canvasRef.current;
       const video = videoRef.current;
       
@@ -124,7 +163,6 @@ export default function WorkoutScannerApp() {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0);
       
-      // Convert canvas to blob for Tesseract
       canvas.toBlob(async (blob) => {
         try {
           const { data: { text } } = await window.Tesseract.recognize(blob, 'eng', {
@@ -158,56 +196,7 @@ export default function WorkoutScannerApp() {
     }
   };
 
-  const uploadPhoto = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Check if it's an image
-    if (!file.type.startsWith('image/')) {
-      showNotification('Please select an image file', 'error');
-      return;
-    }
-
-    setIsUploading(true);
-    showNotification('Processing image... 📖', 'info');
-
-    try {
-      if (tesseractLoaded && window.Tesseract) {
-        // Use Tesseract to process the uploaded image
-        const { data: { text } } = await window.Tesseract.recognize(file, 'eng', {
-          logger: m => console.log(m)
-        });
-        
-        console.log('OCR Result from upload:', text);
-        
-        if (text.trim()) {
-          setInputText(text.trim());
-          parseWorkoutText(text.trim());
-          setActiveTab('workout');
-          showNotification('Photo scanned successfully! 🎉', 'success');
-        } else {
-          showNotification('No text found in image. Try another photo.', 'error');
-        }
-      } else {
-        showNotification('OCR not ready. Using demo scan...', 'info');
-        simulateOCR();
-      }
-    } catch (error) {
-      console.error('Upload OCR Error:', error);
-      showNotification('Failed to process image. Using demo scan...', 'error');
-      simulateOCR();
-    } finally {
-      setIsUploading(false);
-      // Clear the file input
-      event.target.value = '';
-    }
-  };
+  const simulateOCR = () => {
     const demoText = "Bench Press 3x10\nSquats 4x12\nPush-ups 3x15\nDeadlift 5x5\nPull-ups 3x8";
     setInputText(demoText);
     parseWorkoutText(demoText);
@@ -347,7 +336,6 @@ export default function WorkoutScannerApp() {
 
   return (
     <>
-      {/* Load Tesseract.js */}
       <Script 
         src="https://unpkg.com/tesseract.js@v4.1.1/dist/tesseract.min.js"
         onLoad={() => setTesseractLoaded(true)}
@@ -355,10 +343,8 @@ export default function WorkoutScannerApp() {
       />
       
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        {/* Hidden canvas for OCR */}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         
-        {/* Status Bar */}
         <div className="bg-black/20 backdrop-blur-sm px-6 py-3 flex justify-between items-center text-white text-sm">
           <span className="font-medium">9:41 AM</span>
           <span className="font-bold text-lg">FitnessPro</span>
@@ -368,7 +354,6 @@ export default function WorkoutScannerApp() {
           </div>
         </div>
 
-        {/* Notification */}
         {notification.show && (
           <div className={`fixed top-20 left-4 right-4 z-50 p-4 rounded-xl backdrop-blur-md border transition-all duration-300 ${
             notification.type === 'success' ? 'bg-green-500/20 border-green-400/30 text-green-100' :
@@ -379,7 +364,6 @@ export default function WorkoutScannerApp() {
           </div>
         )}
 
-        {/* Tab Navigation */}
         <div className="flex bg-black/20 backdrop-blur-sm mx-4 my-4 rounded-2xl p-1">
           {[
             { id: 'scanner', label: 'Scanner', icon: Camera },
@@ -404,11 +388,9 @@ export default function WorkoutScannerApp() {
           })}
         </div>
 
-        {/* Content */}
         <div className="px-4 pb-20">
           {activeTab === 'scanner' && (
             <div className="space-y-6">
-              {/* Hero Section */}
               <div className="text-center py-8">
                 <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Camera size={32} className="text-white" />
@@ -417,7 +399,6 @@ export default function WorkoutScannerApp() {
                 <p className="text-white/70">Transform handwritten routines into digital workouts</p>
               </div>
 
-              {/* Camera Section */}
               <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
                 <div className="aspect-video bg-black/30 rounded-2xl mb-4 overflow-hidden relative">
                   <video
@@ -503,7 +484,6 @@ export default function WorkoutScannerApp() {
                   )}
                 </div>
 
-                {/* Hidden file input */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -513,7 +493,6 @@ export default function WorkoutScannerApp() {
                 />
               </div>
 
-              {/* Manual Input */}
               <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
                 <div className="flex items-center gap-3 mb-4">
                   <Edit3 size={24} className="text-purple-400" />
@@ -543,7 +522,6 @@ export default function WorkoutScannerApp() {
             <div className="space-y-6">
               {currentWorkout ? (
                 <>
-                  {/* Workout Header */}
                   <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-md rounded-3xl p-6 border border-purple-400/30">
                     <h2 className="text-2xl font-bold text-white mb-2">{currentWorkout.name}</h2>
                     <div className="flex gap-4 text-sm text-white/70">
@@ -551,7 +529,6 @@ export default function WorkoutScannerApp() {
                       <span>~{Math.round(currentWorkout.estimatedTime)} min</span>
                     </div>
                     
-                    {/* Progress Bar */}
                     <div className="mt-4">
                       <div className="flex justify-between text-sm text-white/70 mb-2">
                         <span>Progress</span>
@@ -566,7 +543,6 @@ export default function WorkoutScannerApp() {
                     </div>
                   </div>
 
-                  {/* Exercise List */}
                   <div className="space-y-4">
                     {workouts.map((workout, index) => (
                       <div
@@ -595,7 +571,6 @@ export default function WorkoutScannerApp() {
                           </div>
                         </div>
 
-                        {/* Progress Dots */}
                         <div className="flex gap-2 mb-4">
                           {[...Array(workout.sets)].map((_, i) => (
                             <div
@@ -609,7 +584,6 @@ export default function WorkoutScannerApp() {
                           ))}
                         </div>
 
-                        {/* Controls */}
                         <div className="flex gap-3">
                           {workout.completed < workout.sets && (
                             <>
