@@ -12,6 +12,8 @@ export default function WorkoutScannerApp() {
   const [currentWorkout, setCurrentWorkout] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [tesseractLoaded, setTesseractLoaded] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
@@ -40,93 +42,53 @@ export default function WorkoutScannerApp() {
 
   const startCamera = async () => {
     try {
-      // Stop any existing stream first
+      console.log('Starting camera...');
+      
+      // Stop any existing stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
 
-      console.log('Requesting camera access...');
-      
-      // Request rear camera specifically
-      const constraints = {
+      // Simple, reliable camera request
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: { exact: 'environment' }, // Force rear camera
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 }
+          facingMode: 'environment',
+          width: 640,
+          height: 480
         }
-      };
+      });
 
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (exactError) {
-        console.log('Exact rear camera failed, trying general environment...');
-        // Fallback to general environment camera
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1280, min: 640 },
-            height: { ideal: 720, min: 480 }
-          }
-        });
-      }
+      console.log('Stream obtained:', stream);
 
-      console.log('Camera stream obtained:', stream);
-
-      if (videoRef.current && stream) {
+      if (videoRef.current) {
+        // Clear any existing source
+        videoRef.current.srcObject = null;
+        
+        // Set new stream
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         
-        // Force video properties
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.setAttribute('webkit-playsinline', 'true');
-        videoRef.current.muted = true;
-        
-        // Wait for video to load and play
-        const playPromise = new Promise((resolve, reject) => {
-          videoRef.current.onloadedmetadata = async () => {
-            console.log('Video metadata loaded');
-            try {
-              await videoRef.current.play();
-              console.log('Video playing');
-              resolve();
-            } catch (playError) {
-              console.error('Play error:', playError);
-              reject(playError);
-            }
-          };
-          
-          // Timeout after 5 seconds
-          setTimeout(() => reject(new Error('Video load timeout')), 5000);
-        });
-        
-        await playPromise;
+        // Simple play attempt
+        setTimeout(async () => {
+          try {
+            await videoRef.current.play();
+            console.log('Video playing successfully');
+          } catch (playError) {
+            console.log('Play error, trying again...', playError);
+            // Try playing again after a short delay
+            setTimeout(() => {
+              videoRef.current.play().catch(console.error);
+            }, 500);
+          }
+        }, 100);
       }
       
       setIsScanning(true);
-      showNotification('Rear camera ready 📸', 'success');
+      showNotification('Camera started! 📸', 'success');
+      
     } catch (error) {
       console.error('Camera error:', error);
-      if (error.name === 'NotAllowedError') {
-        showNotification('Camera permission denied. Please allow camera access.', 'error');
-      } else if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
-        showNotification('Rear camera not available. Trying any camera...', 'error');
-        // Try any available camera as last resort
-        try {
-          const anyStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          if (videoRef.current) {
-            videoRef.current.srcObject = anyStream;
-            streamRef.current = anyStream;
-            await videoRef.current.play();
-            setIsScanning(true);
-            showNotification('Camera ready (front) 📸', 'success');
-          }
-        } catch (fallbackError) {
-          showNotification('No camera available - use manual input', 'error');
-        }
-      } else {
-        showNotification('Camera error - use manual input', 'error');
-      }
+      showNotification('Camera unavailable - using demo mode', 'error');
     }
   };
 
@@ -196,7 +158,56 @@ export default function WorkoutScannerApp() {
     }
   };
 
-  const simulateOCR = () => {
+  const uploadPhoto = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check if it's an image
+    if (!file.type.startsWith('image/')) {
+      showNotification('Please select an image file', 'error');
+      return;
+    }
+
+    setIsUploading(true);
+    showNotification('Processing image... 📖', 'info');
+
+    try {
+      if (tesseractLoaded && window.Tesseract) {
+        // Use Tesseract to process the uploaded image
+        const { data: { text } } = await window.Tesseract.recognize(file, 'eng', {
+          logger: m => console.log(m)
+        });
+        
+        console.log('OCR Result from upload:', text);
+        
+        if (text.trim()) {
+          setInputText(text.trim());
+          parseWorkoutText(text.trim());
+          setActiveTab('workout');
+          showNotification('Photo scanned successfully! 🎉', 'success');
+        } else {
+          showNotification('No text found in image. Try another photo.', 'error');
+        }
+      } else {
+        showNotification('OCR not ready. Using demo scan...', 'info');
+        simulateOCR();
+      }
+    } catch (error) {
+      console.error('Upload OCR Error:', error);
+      showNotification('Failed to process image. Using demo scan...', 'error');
+      simulateOCR();
+    } finally {
+      setIsUploading(false);
+      // Clear the file input
+      event.target.value = '';
+    }
+  };
     const demoText = "Bench Press 3x10\nSquats 4x12\nPush-ups 3x15\nDeadlift 5x5\nPull-ups 3x8";
     setInputText(demoText);
     parseWorkoutText(demoText);
@@ -409,35 +420,23 @@ export default function WorkoutScannerApp() {
               {/* Camera Section */}
               <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
                 <div className="aspect-video bg-black/30 rounded-2xl mb-4 overflow-hidden relative">
-                  {isScanning ? (
-                    <>
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        webkit-playsinline="true"
-                        className="w-full h-full object-cover"
-                        style={{ 
-                          backgroundColor: '#000',
-                          minHeight: '200px'
-                        }}
-                        onLoadStart={() => console.log('Video load started')}
-                        onLoadedData={() => console.log('Video data loaded')}
-                        onPlay={() => console.log('Video playing')}
-                        onError={(e) => console.error('Video error:', e)}
-                      />
-                      <div className="absolute inset-0 border-4 border-purple-400 rounded-2xl pointer-events-none">
-                        <div className="absolute top-4 left-4 right-4 h-1 bg-purple-400 rounded-full animate-pulse"></div>
-                        <div className="absolute bottom-4 left-4 right-4 text-center">
-                          <div className="bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
-                            {tesseractLoaded ? 'OCR Ready' : 'Loading OCR...'}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    controls={false}
+                    className="w-full h-full object-cover"
+                    style={{
+                      display: isScanning ? 'block' : 'none',
+                      backgroundColor: '#1a1a1a',
+                      minWidth: '100%',
+                      minHeight: '100%'
+                    }}
+                  />
+                  
+                  {!isScanning && (
+                    <div className="flex items-center justify-center h-full absolute inset-0">
                       <div className="text-center">
                         <Camera size={48} className="text-white/50 mx-auto mb-2" />
                         <p className="text-white/70">Camera preview</p>
@@ -447,17 +446,43 @@ export default function WorkoutScannerApp() {
                       </div>
                     </div>
                   )}
+
+                  {isScanning && (
+                    <div className="absolute inset-0 border-4 border-purple-400 rounded-2xl pointer-events-none">
+                      <div className="absolute top-4 left-4 right-4 h-1 bg-purple-400 rounded-full animate-pulse"></div>
+                      <div className="absolute bottom-4 left-4 right-4 text-center">
+                        <div className="bg-black/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                          {tesseractLoaded ? 'Point camera at workout text' : 'Loading OCR...'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 mb-4">
                   {!isScanning ? (
-                    <button
-                      onClick={startCamera}
-                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5 transition-all"
-                    >
-                      <Camera size={20} />
-                      Start Camera
-                    </button>
+                    <>
+                      <button
+                        onClick={startCamera}
+                        className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5 transition-all"
+                      >
+                        <Camera size={20} />
+                        Start Camera
+                      </button>
+                      
+                      <button
+                        onClick={uploadPhoto}
+                        disabled={isUploading}
+                        className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-orange-500/25 hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                          <circle cx="9" cy="9" r="2"/>
+                          <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                        </svg>
+                        {isUploading ? 'Processing...' : 'Upload Photo'}
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
@@ -477,6 +502,15 @@ export default function WorkoutScannerApp() {
                     </>
                   )}
                 </div>
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
               </div>
 
               {/* Manual Input */}
