@@ -1,3 +1,4 @@
+// pages/index.js
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Play, RotateCcw, CheckCircle, Edit3, Zap, Target, TrendingUp, Plus } from 'lucide-react';
 import Head from 'next/head';
@@ -522,9 +523,6 @@ export default function WorkoutScannerApp() {
         <meta name="description" content="Transform handwritten workouts into digital routines with AI OCR scanning, voice commands, and text-to-speech guidance" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
-        <meta name="theme-color" content="#7c3aed" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
