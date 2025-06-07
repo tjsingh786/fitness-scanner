@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Play, RotateCcw, CheckCircle, Edit3, Zap, Target, TrendingUp, Plus } from 'lucide-react';
 import Head from 'next/head';
-// import Script from 'next/script'; // No longer needed as Tesseract is imported
 import Tesseract from 'tesseract.js'; // Import Tesseract.js directly
 
 export default function WorkoutScannerApp() {
@@ -15,56 +14,46 @@ export default function WorkoutScannerApp() {
   const [currentWorkout, setCurrentWorkout] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [tesseractReady, setTesseractReady] = useState(false); // Renamed from tesseractLoaded for clarity
+  // Removed: [isListening, setIsListening]
+  // Removed: [isSpeaking, setIsSpeaking]
+  const [tesseractReady, setTesseractReady] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
-  const recognitionRef = useRef(null);
+  // Removed: recognitionRef.current
 
   // --- OCR Utility Function (Integrated) ---
-  /**
-   * Recognizes text from an image using Tesseract.js.
-   * @param {File | Blob | string} image - The image file object, Blob, or a base64 string/URL.
-   * @returns {Promise<string|null>} - The recognized text or null if an error occurs.
-   */
   const recognizeTextWithTesseract = async (image) => {
     try {
-      // Tesseract.js will fetch language data ('eng') on first use.
-      // The logger can be useful for debugging in the console.
       const { data: { text } } = await Tesseract.recognize(
         image,
-        'eng', // Language code for English
+        'eng',
         {
           logger: m => {
             if (m.status === 'recognizing text' && m.progress) {
               const progress = Math.round(m.progress * 100);
-              // Update a state for progress if you want to show it in UI
-              // showNotification(`Reading text... ${progress}%`, 'info', false); // No auto-hide
+              // Notification for OCR progress (now auto-hiding)
+              showNotification(`Reading text... ${progress}%`, 'info');
             } else if (m.status === 'loading tesseract core') {
-              showNotification(`Loading OCR engine...`, 'info', false);
+              showNotification(`Loading OCR engine...`, 'info');
             } else if (m.status === 'loading language traineddata') {
-              showNotification(`Loading language data...`, 'info', false);
+              showNotification(`Loading language data...`, 'info');
             }
-            console.log(m); // Keep this for detailed Tesseract debugging
+            console.log(m);
           }
         }
       );
-      console.log("RAW OCR Result:", text); // <-- Crucial for debugging!
+      console.log("RAW OCR Result:", text);
       return text;
     } catch (error) {
       console.error("Error during OCR recognition:", error);
-      return null; // Return null on error
+      return null;
     }
   };
 
 
   // --- PARSING LOGIC: Adjusted to fit existing parseWorkoutText ---
-  // The existing `parseWorkoutText` and `parseWorkoutLine` are already quite good!
-  // We just need to ensure `handleFileUpload` and `captureAndScan` call it correctly
-  // with the OCR result.
   const parseWorkoutText = (text) => {
     if (!text || text.trim() === '') {
       showNotification('No text to parse.', 'error');
@@ -86,32 +75,25 @@ export default function WorkoutScannerApp() {
     if (parsedWorkouts.length > 0) {
       setWorkouts(parsedWorkouts);
       setCurrentWorkout({
-        name: "Scanned Workout", // Default name for scanned workouts
+        name: "Scanned Workout",
         exercises: parsedWorkouts,
         totalExercises: parsedWorkouts.length,
         estimatedTime: Math.round(parsedWorkouts.reduce((acc, w) => acc + (w.sets * (w.restTime + 30)), 0) / 60)
       });
       showNotification(`${parsedWorkouts.length} exercises loaded! 💪`, 'success');
 
-      const exerciseNames = parsedWorkouts.map(w => w.name).join(', ');
-      setTimeout(() => {
-        speakText(`Workout created with ${parsedWorkouts.length} exercises: ${exerciseNames}`);
-      }, 500);
+      // Removed speakText calls here
     } else {
       showNotification('No valid workout lines found. Try format: "Exercise 3*10"', 'error');
-      speakText('No valid workout lines found. Please try again with format like "Exercise 3 times 10" or "Exercise 3 star 10".');
+      // Removed speakText call here
     }
   };
 
   const parseWorkoutLine = (line) => {
     const patterns = [
-      // Handles "Exercise 3*10" or "Exercise 3x10"
       /^(.+?)\s+(\d+)\s*[x*]\s*(\d+)$/i,
-      // Handles "Exercise 3 sets of 10"
       /^(.+?)\s+(\d+)\s+sets?\s+of\s+(\d+)$/i,
-      // Handles "Exercise 3 sets - 10 reps"
       /^(.+?)\s+(\d+)\s*sets?\s*[\-–]\s*(\d+)\s*reps?$/i,
-      // Handles "Running 30 minutes"
       /^(.+?)\s+(\d+)\s+minutes?$/i,
     ];
 
@@ -122,8 +104,8 @@ export default function WorkoutScannerApp() {
         return {
           id: Date.now() + Math.random(),
           name: match[1].trim(),
-          sets: isTimeBased ? 1 : parseInt(match[2], 10), // For time-based, consider 1 set
-          reps: isTimeBased ? parseInt(match[2], 10) : parseInt(match[3], 10) || 1, // reps become minutes for time-based
+          sets: isTimeBased ? 1 : parseInt(match[2], 10),
+          reps: isTimeBased ? parseInt(match[2], 10) : parseInt(match[3], 10) || 1,
           restTime: getDefaultRestTime(match[1].trim()),
           completed: 0,
           isActive: false,
@@ -131,51 +113,29 @@ export default function WorkoutScannerApp() {
         };
       }
     }
-    return null; // No match found
+    return null;
   };
 
 
-  // Initialize speech recognition and Tesseract
+  // Initialize Tesseract.js (and removed speech recognition init)
   useEffect(() => {
-    // Check if Tesseract.js is already loaded (it might be in development via direct script tag or similar)
-    // For a cleaner approach, relying purely on NPM import.
-    // Tesseract.js itself handles its worker setup on first .recognize() call.
-    // So, setting tesseractReady to true after the first successful recognition might be more accurate,
-    // or you can just assume it's ready if the import works.
-    // For now, let's assume it's ready immediately after import for UI purposes,
-    // and handle loading states within recognizeTextWithTesseract.
-    setTesseractReady(true);
+    setTesseractReady(true); // Tesseract.js is ready once imported
 
-
-    if (typeof window !== 'undefined') {
-      // Initialize speech recognition
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.interimResults = false;
-        recognitionRef.current.lang = 'en-US';
-
-        recognitionRef.current.onresult = (event) => {
-          const transcript = event.results[0][0].transcript;
-          setInputText(prev => prev + ' ' + transcript);
-          showNotification('Voice input received! 🎉', 'success');
-          setIsListening(false);
-        };
-
-        recognitionRef.current.onerror = (event) => {
-          console.error("Speech Recognition Error:", event.error);
-          showNotification(`Voice recognition error: ${event.error}`, 'error');
-          setIsListening(false);
-        };
-
-        recognitionRef.current.onend = () => {
-          setIsListening(false);
-        };
-      } else {
-        showNotification('Speech Recognition not supported in this browser.', 'error');
-      }
-    }
+    // Removed: Speech recognition initialization
+    // if (typeof window !== 'undefined') {
+    //   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    //   if (SpeechRecognition) {
+    //     recognitionRef.current = new SpeechRecognition();
+    //     recognitionRef.current.continuous = false;
+    //     recognitionRef.current.interimResults = false;
+    //     recognitionRef.current.lang = 'en-US';
+    //     recognitionRef.current.onresult = ...;
+    //     recognitionRef.current.onerror = ...;
+    //     recognitionRef.current.onend = ...;
+    //   } else {
+    //     showNotification('Speech Recognition not supported in this browser.', 'error');
+    //   }
+    // }
   }, []);
 
   // Cleanup video stream on unmount
@@ -187,11 +147,10 @@ export default function WorkoutScannerApp() {
     };
   }, []);
 
-  const showNotification = (message, type = 'info', autoHide = true) => {
+  // Simplified showNotification, removed autoHide parameter from its definition
+  const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
-    if (autoHide) {
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-    }
+    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
   };
 
   const startCamera = async () => {
@@ -250,60 +209,11 @@ export default function WorkoutScannerApp() {
     setIsScanning(false);
   };
 
-  const startVoiceInput = () => {
-    if (recognitionRef.current && !isListening) {
-      try {
-        setIsListening(true);
-        recognitionRef.current.start();
-        showNotification('Listening... 🎤', 'info');
-      } catch (error) {
-        showNotification('Voice input not supported or failed to start.', 'error');
-        setIsListening(false);
-        console.error("Error starting voice input:", error);
-      }
-    } else if (!recognitionRef.current) {
-      showNotification('Voice input is not available on this device/browser.', 'error');
-    }
-  };
+  // Removed: startVoiceInput function
+  // Removed: stopVoiceInput function
+  // Removed: speakText function
+  // Removed: readWorkoutAloud function
 
-  const stopVoiceInput = () => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-    }
-  };
-
-  const speakText = (text) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 0.8;
-
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = (event) => {
-        console.error("Speech Synthesis Error:", event);
-        setIsSpeaking(false);
-      };
-
-      window.speechSynthesis.speak(utterance);
-      showNotification('🔊 Speaking...', 'info');
-    } else {
-      showNotification('Text-to-speech not supported', 'error');
-    }
-  };
-
-  const readWorkoutAloud = () => {
-    if (inputText.trim()) {
-      // Adjusted regex for speaking
-      const workoutText = inputText.replace(/(\d+)[x*](\d+)/g, '$1 sets of $2 reps');
-      speakText(`Your workout: ${workoutText}`);
-    } else {
-      speakText('No workout text to read');
-    }
-  };
 
   const uploadPhoto = () => {
     if (fileInputRef.current) {
@@ -324,34 +234,28 @@ export default function WorkoutScannerApp() {
     showNotification('Processing image... 📖', 'info');
 
     try {
-      // Use the local recognizeTextWithTesseract function
       const text = await recognizeTextWithTesseract(file);
 
       if (text && text.trim()) {
         setInputText(text.trim());
-        parseWorkoutText(text.trim()); // Now this function uses the new parsing logic
+        parseWorkoutText(text.trim());
         setActiveTab('workout');
         showNotification('✅ Photo scanned successfully!', 'success');
 
-        const exerciseCount = countExercises(text.trim());
-        setTimeout(() => {
-          speakText(`Photo processed successfully! Found ${exerciseCount} exercises in your workout.`);
-        }, 1000);
+        // Removed speakText call
       } else {
         showNotification('No text found in image. Try a clearer photo.', 'error');
-        speakText('No workout text found. Please try a clearer photo.');
-        // Fallback to demo workout if OCR yields no text
-        loadDemoWorkout('No text found');
+        // Removed speakText call
+        loadDemoWorkout('No text found from upload'); // Fallback to demo
       }
     } catch (error) {
       console.error('Upload OCR Error:', error);
       showNotification('Failed to process image. Try again.', 'error');
-      speakText('Failed to process image. Please try again.');
-      // Fallback to demo workout on any OCR processing error
-      loadDemoWorkout('OCR processing error');
+      // Removed speakText call
+      loadDemoWorkout('OCR processing error on upload'); // Fallback to demo
     } finally {
       setIsUploading(false);
-      event.target.value = ''; // Clear file input
+      event.target.value = '';
     }
   };
 
@@ -359,7 +263,6 @@ export default function WorkoutScannerApp() {
     const lines = text.split('\n').filter(line => line.trim());
     let count = 0;
     lines.forEach(line => {
-      // Reuse the same parsing logic to validate if it's an exercise line
       if (parseWorkoutLine(line)) {
         count++;
       }
@@ -391,31 +294,25 @@ export default function WorkoutScannerApp() {
         try {
           showNotification('Running OCR on captured image...', 'info');
 
-          // Use the local recognizeTextWithTesseract function
-          const text = await recognizeTextWithTesseract(blob); // Pass the Blob directly
+          const text = await recognizeTextWithTesseract(blob);
 
           if (text && text.trim()) {
             setInputText(text.trim());
-            parseWorkoutText(text.trim()); // Now this function uses the new parsing logic
+            parseWorkoutText(text.trim());
             setActiveTab('workout');
             showNotification('✅ Text captured successfully!', 'success');
 
-            const exerciseCount = countExercises(text.trim());
-            setTimeout(() => {
-              speakText(`Camera scan complete! Found ${exerciseCount} exercises.`);
-            }, 1000);
+            // Removed speakText call
           } else {
             showNotification('No text detected. Position camera closer to text.', 'error');
-            speakText('No workout text detected. Please position camera closer to the text.');
-            // Fallback to demo workout if OCR yields no text
-            loadDemoWorkout('No text found from camera');
+            // Removed speakText call
+            loadDemoWorkout('No text found from camera'); // Fallback to demo
           }
         } catch (ocrError) {
           console.error('Camera OCR Error:', ocrError);
           showNotification('Scan failed. Try uploading a photo instead.', 'error');
-          speakText('Camera scan failed. Try uploading a photo instead.');
-          // Fallback to demo workout on any OCR processing error
-          loadDemoWorkout('Camera OCR processing error');
+          // Removed speakText call
+          loadDemoWorkout('Camera OCR processing error'); // Fallback to demo
         } finally {
           setIsProcessing(false);
         }
@@ -424,7 +321,7 @@ export default function WorkoutScannerApp() {
       console.error('Capture error:', error);
       showNotification('Failed to capture image', 'error');
       setIsProcessing(false);
-      loadDemoWorkout('Failed to capture image');
+      loadDemoWorkout('Failed to capture image'); // Fallback to demo
     }
   };
 
@@ -432,14 +329,14 @@ export default function WorkoutScannerApp() {
   const getDefaultRestTime = (exerciseName) => {
     const exercise = exerciseName.toLowerCase();
     if (exercise.includes('bench') || exercise.includes('squat') || exercise.includes('deadlift') || exercise.includes('press')) {
-      return 180; // Longer rest for heavy compounds
-    } else if (exercise.includes('curl') || exercise.includes('extension') || exercise.includes('raise') || exercise.includes('lunge')) { // Added lunge
-      return 60; // Shorter rest for isolation/lighter
-    } else if (exercise.includes('run') || exercise.includes('jog') || exercise.includes('cardio') || exercise.includes('jump')) { // Added jump for jumping jacks
-      return 0; // No rest time for continuous cardio
+      return 180;
+    } else if (exercise.includes('curl') || exercise.includes('extension') || exercise.includes('raise') || exercise.includes('lunge')) {
+      return 60;
+    } else if (exercise.includes('run') || exercise.includes('jog') || exercise.includes('cardio') || exercise.includes('jump')) {
+      return 0;
     }
     else {
-      return 90; // Default rest
+      return 90;
     }
   };
 
@@ -450,12 +347,7 @@ export default function WorkoutScannerApp() {
 
     const workout = workouts.find(w => w.id === exerciseId);
     if (workout) {
-      const isTimeBased = workout.name.toLowerCase().includes('minutes');
-      if (isTimeBased) {
-        speakText(`Starting ${workout.reps} minutes of ${workout.name}.`);
-      } else {
-        speakText(`Starting ${workout.name}. ${workout.reps} reps, go!`);
-      }
+      // Removed speakText calls
     }
   };
 
@@ -472,10 +364,10 @@ export default function WorkoutScannerApp() {
     if (workout) {
       if (workout.completed < workout.sets) {
         startRestTimer(exerciseId, workout.restTime);
-        speakText(`Set complete! Rest for ${workout.restTime} seconds.`);
+        // Removed speakText call
       } else {
         showNotification('Exercise complete! 🔥', 'success');
-        speakText(`Excellent! ${workout.name} completed!`);
+        // Removed speakText call
       }
     }
   };
@@ -499,7 +391,7 @@ export default function WorkoutScannerApp() {
           return newTimers;
         });
         showNotification('Rest complete! Ready for next set 🚀', 'success');
-        speakText('Rest complete! Ready for your next set!');
+        // Removed speakText call
       }
     }, 1000);
   };
@@ -530,13 +422,13 @@ export default function WorkoutScannerApp() {
   };
 
   // Quick demo workout function
-  const loadDemoWorkout = (reason = '') => { // Added reason for better logging/notifications
+  const loadDemoWorkout = (reason = '') => {
     console.log(`Loading demo workout. Reason: ${reason}`);
     const demoText = "Bench Press 3*10\nSquats 4*12\nPush-ups 3*15\nDeadlift 5*5\nPull-ups 3*8";
     setInputText(demoText);
     parseWorkoutText(demoText);
     setActiveTab('workout');
-    speakText('Demo workout loaded with 5 exercises!');
+    // Removed speakText call
     showNotification('Demo workout loaded!', 'info');
   };
 
@@ -544,17 +436,10 @@ export default function WorkoutScannerApp() {
     <>
       <Head>
         <title>FitnessPro - AI Workout Scanner</title>
-        <meta name="description" content="Transform handwritten workouts into digital routines with AI OCR scanning, voice commands, and text-to-speech guidance" />
+        <meta name="description" content="Transform handwritten workouts into digital routines with AI OCR scanning." /> {/* Updated description */}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-
-      {/* Removed Script tag for Tesseract as it's now imported */}
-      {/* <Script
-        src="https://unpkg.com/tesseract.js@v4.1.1/dist/tesseract.min.js"
-        onLoad={() => setTesseractLoaded(true)}
-        strategy="beforeInteractive"
-      /> */}
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <canvas ref={canvasRef} style={{ display: 'none' }} />
@@ -622,7 +507,8 @@ export default function WorkoutScannerApp() {
                 </div>
                 <h1 className="text-3xl font-bold text-white mb-2">Scan Your Workout</h1>
                 <p className="text-white/70">Transform handwritten routines into digital workouts</p>
-                <p className="text-white/50 text-sm mt-2">✨ With voice commands and text-to-speech!</p>
+                {/* Removed voice/TTS mention */}
+                {/* <p className="text-white/50 text-sm mt-2">✨ With voice commands and text-to-speech!</p> */}
               </div>
 
               {/* Demo Quick Start */}
@@ -734,19 +620,20 @@ export default function WorkoutScannerApp() {
                 />
               </div>
 
-              {/* Manual Input with Voice */}
+              {/* Manual Input (Voice elements removed) */}
               <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
                 <div className="flex items-center gap-3 mb-4">
                   <Edit3 size={24} className="text-purple-400" />
                   <h3 className="text-xl font-bold text-white">Manual Entry</h3>
-                  <div className="ml-auto flex gap-2">
+                  {/* Removed voice/TTS tags */}
+                  {/* <div className="ml-auto flex gap-2">
                     <div className="bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs font-medium">
                       🎤 Voice
                     </div>
                     <div className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full text-xs font-medium">
                       🔊 TTS
                     </div>
-                  </div>
+                  </div> */}
                 </div>
 
                 <textarea
@@ -757,8 +644,8 @@ export default function WorkoutScannerApp() {
                   rows={4}
                 />
 
-                {/* Voice and TTS Controls */}
-                <div className="flex gap-3 mb-4">
+                {/* Removed Voice and TTS Controls */}
+                {/* <div className="flex gap-3 mb-4">
                   <button
                     onClick={isListening ? stopVoiceInput : startVoiceInput}
                     className={`flex-1 py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg transition-all ${
@@ -792,7 +679,7 @@ export default function WorkoutScannerApp() {
                     </svg>
                     {isSpeaking ? '🔊 Speaking...' : '🔊 Read Aloud'}
                   </button>
-                </div>
+                </div> */}
 
                 <button
                   onClick={() => parseWorkoutText(inputText)}
@@ -816,7 +703,8 @@ export default function WorkoutScannerApp() {
                     <div className="flex gap-4 text-sm text-white/70">
                       <span>{currentWorkout.totalExercises} exercises</span>
                       <span>~{currentWorkout.estimatedTime} min</span>
-                      <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">🎙️ Voice Enabled</span>
+                      {/* Removed voice enabled tag */}
+                      {/* <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">🎙️ Voice Enabled</span> */}
                     </div>
 
                     {/* Progress Bar */}
