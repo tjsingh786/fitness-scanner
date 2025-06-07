@@ -87,33 +87,53 @@ export default function WorkoutScannerApp() {
   };
 
   const parseWorkoutLine = (line) => {
-    // Clean the line first: remove leading non-alphanumeric chars (like bullet points)
-    // and trim whitespace.
-    const cleanedLine = line.replace(/^[^\w\d]*/, '').trim();
+    // Step 1: Aggressive cleaning of the line before pattern matching
+    // Convert to lowercase for case-insensitivity in regex matching
+    let cleanedLine = line.toLowerCase();
+    // Remove zero-width spaces and other non-printable characters that OCR might introduce
+    cleanedLine = cleanedLine.replace(/[\u200B-\u200D\uFEFF]/g, '');
+    // Remove specific leading non-alphanumeric chars that might be bullet points or noise
+    cleanedLine = cleanedLine.replace(/^[^\w\d\s]*/, '');
+    // Remove common punctuation/symbols that are not part of the set/rep scheme (like parentheses)
+    cleanedLine = cleanedLine.replace(/[()\[\]{}.!?,;:"']/g, ''); // Added . ! ? , ; : " '
+    // Replace multiple spaces with single space and trim leading/trailing whitespace
+    cleanedLine = cleanedLine.replace(/\s+/g, ' ').trim();
 
-    // The patterns are ordered from most specific to least specific
+    // Example of expected cleaned input from handwritten:
+    // "push-press 3x3"
+    // "db flat bench 4x4"
+    // "tricep overhead ext 3x12"
+    // "military press 3x5"
+
+    // Patterns are ordered from most common/specific to least specific.
     const patterns = [
-      // Handles "ExerciseName 3x10" or "ExerciseName 3*10"
-      // Captures anything as exercise name up to the numbers and separator
-      /^(.+?)\s*(\d+)\s*[x*]\s*(\d+)\s*$/i,
-      // Handles "ExerciseName 3 sets of 10"
-      /^(.+?)\s*(\d+)\s+sets?\s+of\s+(\d+)\s*$/i,
-      // Handles "ExerciseName 3 sets - 10 reps"
-      /^(.+?)\s*(\d+)\s*sets?\s*[\-–]\s*(\d+)\s*reps?\s*$/i,
-      // Handles "Running 30 minutes"
-      /^(.+?)\s*(\d+)\s+minutes?\s*$/i,
+      // Pattern 1: ExerciseName SetsX/Sets*Reps (e.g., "Bench Press 3x10", "Lunges 5*10")
+      // Captures: Group 1 (Exercise Name), Group 2 (Sets), Group 3 (Reps)
+      // `.+?` non-greedy match for exercise name, `\s*` for flexible whitespace
+      /^(.+?)\s*(\d+)\s*[x*]\s*(\d+)$/,
+
+      // Pattern 2: ExerciseName Sets of Reps (e.g., "Squats 3 sets of 12")
+      // Covers variations like "set" or "sets"
+      /^(.+?)\s*(\d+)\s+sets?\s+of\s+(\d+)$/,
+
+      // Pattern 3: ExerciseName Sets - Reps (e.g., "Deadlift 3 sets - 5 reps")
+      // Handles different dash characters (hyphen, en-dash, em-dash)
+      /^(.+?)\s*(\d+)\s*sets?\s*[\-–—]\s*(\d+)\s*reps?$/,
+
+      // Pattern 4: ExerciseName Duration (e.g., "Running 30 minutes")
+      /^(.+?)\s*(\d+)\s+minutes?$/,
     ];
 
     for (let pattern of patterns) {
       const match = cleanedLine.match(pattern);
       if (match) {
-        const isTimeBased = cleanedLine.toLowerCase().includes('minutes');
+        const isTimeBased = cleanedLine.includes('minutes'); // Check against cleaned line
         return {
           id: Date.now() + Math.random(),
           name: match[1].trim(), // Trim potential extra spaces from captured name
-          sets: isTimeBased ? 1 : parseInt(match[2], 10),
-          reps: isTimeBased ? parseInt(match[2], 10) : parseInt(match[3], 10) || 1,
-          restTime: getDefaultRestTime(match[1].trim()),
+          sets: isTimeBased ? 1 : parseInt(match[2], 10), // For time-based, consider 1 set
+          reps: isTimeBased ? parseInt(match[2], 10) : parseInt(match[3], 10) || 1, // reps become minutes for time-based
+          restTime: getDefaultRestTime(match[1].trim()), // Use the original matched name for rest time logic
           completed: 0,
           isActive: false,
           weight: null
@@ -127,7 +147,6 @@ export default function WorkoutScannerApp() {
   // Initialize Tesseract.js
   useEffect(() => {
     setTesseractReady(true);
-    // Removed: Speech recognition initialization
   }, []);
 
   // Cleanup video stream on unmount
@@ -139,7 +158,6 @@ export default function WorkoutScannerApp() {
     };
   }, []);
 
-  // Simplified showNotification, removed autoHide parameter from its definition
   const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
@@ -245,6 +263,7 @@ export default function WorkoutScannerApp() {
     const lines = text.split('\n').filter(line => line.trim());
     let count = 0;
     lines.forEach(line => {
+      // Use the parsing logic to determine if it's a valid exercise line
       if (parseWorkoutLine(line)) {
         count++;
       }
@@ -337,7 +356,7 @@ export default function WorkoutScannerApp() {
     if (workout) {
       if (workout.completed < workout.sets) {
         startRestTimer(exerciseId, workout.restTime);
-        showNotification('Set complete! Rest timer started.', 'success'); // Generic notification
+        showNotification('Set complete! Rest timer started.', 'success');
       } else {
         showNotification('Exercise complete! 🔥', 'success');
       }
@@ -395,12 +414,23 @@ export default function WorkoutScannerApp() {
   // Quick demo workout function
   const loadDemoWorkout = (reason = '') => {
     console.log(`Loading demo workout. Reason: ${reason}`);
-    const demoText = "Bench Press 3x10\nSquats 4x12\nPush-ups 3x15\nDeadlift 5x5\nPull-ups 3x8";
+    const demoText = "Bench Press 3*10\nSquats 4*12\nPush-ups 3*15\nDeadlift 5*5\nPull-ups 3*8";
     setInputText(demoText);
     parseWorkoutText(demoText);
     setActiveTab('workout');
     showNotification('Demo workout loaded!', 'info');
   };
+
+  // NEW: Reset All Workouts Function
+  const resetAllWorkouts = () => {
+    setWorkouts([]); // Clear the main workouts array
+    setCurrentWorkout(null); // Clear the current workout object
+    setInputText(''); // Clear any text in the manual input box
+    setActiveTimers({}); // Clear any active timers
+    showNotification('All workouts reset! Start a new one.', 'info');
+    setActiveTab('scanner'); // Optionally navigate back to the scanner tab
+  };
+
 
   return (
     <>
@@ -588,7 +618,7 @@ export default function WorkoutScannerApp() {
                 />
               </div>
 
-              {/* Manual Input (Voice elements removed) */}
+              {/* Manual Input */}
               <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
                 <div className="flex items-center gap-3 mb-4">
                   <Edit3 size={24} className="text-purple-400" />
@@ -598,7 +628,7 @@ export default function WorkoutScannerApp() {
                 <textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Enter workout (e.g., 'Bench Press 3x10' or 'Running 30 minutes')"
+                  placeholder="Enter workout (e.g., 'Bench Press 3*10' or 'Running 30 minutes')"
                   className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-2xl p-4 mb-4 resize-none focus:outline-none focus:border-purple-400 transition-colors"
                   rows={4}
                 />
@@ -621,7 +651,15 @@ export default function WorkoutScannerApp() {
                 <>
                   {/* Workout Header */}
                   <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-md rounded-3xl p-6 border border-purple-400/30">
-                    <h2 className="text-2xl font-bold text-white mb-2">{currentWorkout.name}</h2>
+                    <div className="flex justify-between items-center mb-2"> {/* Added flex container */}
+                      <h2 className="text-2xl font-bold text-white">{currentWorkout.name}</h2>
+                      <button
+                        onClick={resetAllWorkouts}
+                        className="bg-red-500/20 text-red-300 px-4 py-2 rounded-xl font-medium text-sm hover:bg-red-500/30 transition-colors border border-red-400/30"
+                      >
+                        Reset All
+                      </button>
+                    </div>
                     <div className="flex gap-4 text-sm text-white/70">
                       <span>{currentWorkout.totalExercises} exercises</span>
                       <span>~{currentWorkout.estimatedTime} min</span>
