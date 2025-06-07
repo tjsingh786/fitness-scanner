@@ -14,14 +14,11 @@ export default function WorkoutScannerApp() {
   const [currentWorkout, setCurrentWorkout] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  // Removed: [isListening, setIsListening]
-  // Removed: [isSpeaking, setIsSpeaking]
   const [tesseractReady, setTesseractReady] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
-  // Removed: recognitionRef.current
 
   // --- OCR Utility Function (Integrated) ---
   const recognizeTextWithTesseract = async (image) => {
@@ -33,18 +30,17 @@ export default function WorkoutScannerApp() {
           logger: m => {
             if (m.status === 'recognizing text' && m.progress) {
               const progress = Math.round(m.progress * 100);
-              // Notification for OCR progress (now auto-hiding)
               showNotification(`Reading text... ${progress}%`, 'info');
             } else if (m.status === 'loading tesseract core') {
               showNotification(`Loading OCR engine...`, 'info');
             } else if (m.status === 'loading language traineddata') {
               showNotification(`Loading language data...`, 'info');
             }
-            console.log(m);
+            console.log(m); // Keep this for detailed Tesseract debugging
           }
         }
       );
-      console.log("RAW OCR Result:", text);
+      console.log("RAW OCR Result:", text); // <-- Crucial for debugging!
       return text;
     } catch (error) {
       console.error("Error during OCR recognition:", error);
@@ -69,41 +65,52 @@ export default function WorkoutScannerApp() {
       const workout = parseWorkoutLine(line.trim());
       if (workout) {
         parsedWorkouts.push(workout);
+      } else {
+        // Log lines that failed to parse for debugging
+        console.warn(`Line failed to parse: "${line}"`);
       }
     });
 
     if (parsedWorkouts.length > 0) {
       setWorkouts(parsedWorkouts);
       setCurrentWorkout({
-        name: "Scanned Workout",
+        name: "Scanned Workout", // Default name for scanned workouts
         exercises: parsedWorkouts,
         totalExercises: parsedWorkouts.length,
         estimatedTime: Math.round(parsedWorkouts.reduce((acc, w) => acc + (w.sets * (w.restTime + 30)), 0) / 60)
       });
       showNotification(`${parsedWorkouts.length} exercises loaded! 💪`, 'success');
 
-      // Removed speakText calls here
     } else {
-      showNotification('No valid workout lines found. Try format: "Exercise 3*10"', 'error');
-      // Removed speakText call here
+      showNotification('No valid workout lines found. Try format: "Exercise 3x10"', 'error');
     }
   };
 
   const parseWorkoutLine = (line) => {
+    // Clean the line first: remove leading non-alphanumeric chars (like bullet points)
+    // and trim whitespace.
+    const cleanedLine = line.replace(/^[^\w\d]*/, '').trim();
+
+    // The patterns are ordered from most specific to least specific
     const patterns = [
-      /^(.+?)\s+(\d+)\s*[x*]\s*(\d+)$/i,
-      /^(.+?)\s+(\d+)\s+sets?\s+of\s+(\d+)$/i,
-      /^(.+?)\s+(\d+)\s*sets?\s*[\-–]\s*(\d+)\s*reps?$/i,
-      /^(.+?)\s+(\d+)\s+minutes?$/i,
+      // Handles "ExerciseName 3x10" or "ExerciseName 3*10"
+      // Captures anything as exercise name up to the numbers and separator
+      /^(.+?)\s*(\d+)\s*[x*]\s*(\d+)\s*$/i,
+      // Handles "ExerciseName 3 sets of 10"
+      /^(.+?)\s*(\d+)\s+sets?\s+of\s+(\d+)\s*$/i,
+      // Handles "ExerciseName 3 sets - 10 reps"
+      /^(.+?)\s*(\d+)\s*sets?\s*[\-–]\s*(\d+)\s*reps?\s*$/i,
+      // Handles "Running 30 minutes"
+      /^(.+?)\s*(\d+)\s+minutes?\s*$/i,
     ];
 
     for (let pattern of patterns) {
-      const match = line.match(pattern);
+      const match = cleanedLine.match(pattern);
       if (match) {
-        const isTimeBased = line.toLowerCase().includes('minutes');
+        const isTimeBased = cleanedLine.toLowerCase().includes('minutes');
         return {
           id: Date.now() + Math.random(),
-          name: match[1].trim(),
+          name: match[1].trim(), // Trim potential extra spaces from captured name
           sets: isTimeBased ? 1 : parseInt(match[2], 10),
           reps: isTimeBased ? parseInt(match[2], 10) : parseInt(match[3], 10) || 1,
           restTime: getDefaultRestTime(match[1].trim()),
@@ -113,29 +120,14 @@ export default function WorkoutScannerApp() {
         };
       }
     }
-    return null;
+    return null; // No match found
   };
 
 
-  // Initialize Tesseract.js (and removed speech recognition init)
+  // Initialize Tesseract.js
   useEffect(() => {
-    setTesseractReady(true); // Tesseract.js is ready once imported
-
+    setTesseractReady(true);
     // Removed: Speech recognition initialization
-    // if (typeof window !== 'undefined') {
-    //   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    //   if (SpeechRecognition) {
-    //     recognitionRef.current = new SpeechRecognition();
-    //     recognitionRef.current.continuous = false;
-    //     recognitionRef.current.interimResults = false;
-    //     recognitionRef.current.lang = 'en-US';
-    //     recognitionRef.current.onresult = ...;
-    //     recognitionRef.current.onerror = ...;
-    //     recognitionRef.current.onend = ...;
-    //   } else {
-    //     showNotification('Speech Recognition not supported in this browser.', 'error');
-    //   }
-    // }
   }, []);
 
   // Cleanup video stream on unmount
@@ -209,12 +201,6 @@ export default function WorkoutScannerApp() {
     setIsScanning(false);
   };
 
-  // Removed: startVoiceInput function
-  // Removed: stopVoiceInput function
-  // Removed: speakText function
-  // Removed: readWorkoutAloud function
-
-
   const uploadPhoto = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -241,18 +227,14 @@ export default function WorkoutScannerApp() {
         parseWorkoutText(text.trim());
         setActiveTab('workout');
         showNotification('✅ Photo scanned successfully!', 'success');
-
-        // Removed speakText call
       } else {
         showNotification('No text found in image. Try a clearer photo.', 'error');
-        // Removed speakText call
-        loadDemoWorkout('No text found from upload'); // Fallback to demo
+        loadDemoWorkout('No text found from upload');
       }
     } catch (error) {
       console.error('Upload OCR Error:', error);
       showNotification('Failed to process image. Try again.', 'error');
-      // Removed speakText call
-      loadDemoWorkout('OCR processing error on upload'); // Fallback to demo
+      loadDemoWorkout('OCR processing error on upload');
     } finally {
       setIsUploading(false);
       event.target.value = '';
@@ -301,18 +283,14 @@ export default function WorkoutScannerApp() {
             parseWorkoutText(text.trim());
             setActiveTab('workout');
             showNotification('✅ Text captured successfully!', 'success');
-
-            // Removed speakText call
           } else {
             showNotification('No text detected. Position camera closer to text.', 'error');
-            // Removed speakText call
-            loadDemoWorkout('No text found from camera'); // Fallback to demo
+            loadDemoWorkout('No text found from camera');
           }
         } catch (ocrError) {
           console.error('Camera OCR Error:', ocrError);
           showNotification('Scan failed. Try uploading a photo instead.', 'error');
-          // Removed speakText call
-          loadDemoWorkout('Camera OCR processing error'); // Fallback to demo
+          loadDemoWorkout('Camera OCR processing error');
         } finally {
           setIsProcessing(false);
         }
@@ -321,7 +299,7 @@ export default function WorkoutScannerApp() {
       console.error('Capture error:', error);
       showNotification('Failed to capture image', 'error');
       setIsProcessing(false);
-      loadDemoWorkout('Failed to capture image'); // Fallback to demo
+      loadDemoWorkout('Failed to capture image');
     }
   };
 
@@ -344,11 +322,6 @@ export default function WorkoutScannerApp() {
     setWorkouts(prev => prev.map(w =>
       w.id === exerciseId ? { ...w, isActive: true } : w
     ));
-
-    const workout = workouts.find(w => w.id === exerciseId);
-    if (workout) {
-      // Removed speakText calls
-    }
   };
 
   const completeSet = (exerciseId) => {
@@ -364,10 +337,9 @@ export default function WorkoutScannerApp() {
     if (workout) {
       if (workout.completed < workout.sets) {
         startRestTimer(exerciseId, workout.restTime);
-        // Removed speakText call
+        showNotification('Set complete! Rest timer started.', 'success'); // Generic notification
       } else {
         showNotification('Exercise complete! 🔥', 'success');
-        // Removed speakText call
       }
     }
   };
@@ -391,7 +363,6 @@ export default function WorkoutScannerApp() {
           return newTimers;
         });
         showNotification('Rest complete! Ready for next set 🚀', 'success');
-        // Removed speakText call
       }
     }, 1000);
   };
@@ -424,11 +395,10 @@ export default function WorkoutScannerApp() {
   // Quick demo workout function
   const loadDemoWorkout = (reason = '') => {
     console.log(`Loading demo workout. Reason: ${reason}`);
-    const demoText = "Bench Press 3*10\nSquats 4*12\nPush-ups 3*15\nDeadlift 5*5\nPull-ups 3*8";
+    const demoText = "Bench Press 3x10\nSquats 4x12\nPush-ups 3x15\nDeadlift 5x5\nPull-ups 3x8";
     setInputText(demoText);
     parseWorkoutText(demoText);
     setActiveTab('workout');
-    // Removed speakText call
     showNotification('Demo workout loaded!', 'info');
   };
 
@@ -436,7 +406,7 @@ export default function WorkoutScannerApp() {
     <>
       <Head>
         <title>FitnessPro - AI Workout Scanner</title>
-        <meta name="description" content="Transform handwritten workouts into digital routines with AI OCR scanning." /> {/* Updated description */}
+        <meta name="description" content="Transform handwritten routines into digital workouts with AI OCR scanning." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -507,8 +477,6 @@ export default function WorkoutScannerApp() {
                 </div>
                 <h1 className="text-3xl font-bold text-white mb-2">Scan Your Workout</h1>
                 <p className="text-white/70">Transform handwritten routines into digital workouts</p>
-                {/* Removed voice/TTS mention */}
-                {/* <p className="text-white/50 text-sm mt-2">✨ With voice commands and text-to-speech!</p> */}
               </div>
 
               {/* Demo Quick Start */}
@@ -625,61 +593,15 @@ export default function WorkoutScannerApp() {
                 <div className="flex items-center gap-3 mb-4">
                   <Edit3 size={24} className="text-purple-400" />
                   <h3 className="text-xl font-bold text-white">Manual Entry</h3>
-                  {/* Removed voice/TTS tags */}
-                  {/* <div className="ml-auto flex gap-2">
-                    <div className="bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs font-medium">
-                      🎤 Voice
-                    </div>
-                    <div className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full text-xs font-medium">
-                      🔊 TTS
-                    </div>
-                  </div> */}
                 </div>
 
                 <textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Enter workout (e.g., 'Bench Press 3*10' or 'Running 30 minutes')"
+                  placeholder="Enter workout (e.g., 'Bench Press 3x10' or 'Running 30 minutes')"
                   className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-2xl p-4 mb-4 resize-none focus:outline-none focus:border-purple-400 transition-colors"
                   rows={4}
                 />
-
-                {/* Removed Voice and TTS Controls */}
-                {/* <div className="flex gap-3 mb-4">
-                  <button
-                    onClick={isListening ? stopVoiceInput : startVoiceInput}
-                    className={`flex-1 py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg transition-all ${
-                      isListening
-                        ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
-                        : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:shadow-green-500/25 hover:-translate-y-0.5'
-                    }`}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                      <line x1="12" y1="19" x2="12" y2="23"/>
-                      <line x1="8" y1="23" x2="16" y2="23"/>
-                    </svg>
-                    {isListening ? '🔴 Stop Listening' : '🎤 Voice Input'}
-                  </button>
-
-                  <button
-                    onClick={readWorkoutAloud}
-                    disabled={isSpeaking || !inputText.trim()}
-                    className={`flex-1 py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50 ${
-                      isSpeaking
-                        ? 'bg-indigo-600 text-white animate-pulse'
-                        : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:shadow-indigo-500/25 hover:-translate-y-0.5'
-                    }`}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-                    </svg>
-                    {isSpeaking ? '🔊 Speaking...' : '🔊 Read Aloud'}
-                  </button>
-                </div> */}
 
                 <button
                   onClick={() => parseWorkoutText(inputText)}
@@ -703,8 +625,6 @@ export default function WorkoutScannerApp() {
                     <div className="flex gap-4 text-sm text-white/70">
                       <span>{currentWorkout.totalExercises} exercises</span>
                       <span>~{currentWorkout.estimatedTime} min</span>
-                      {/* Removed voice enabled tag */}
-                      {/* <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">🎙️ Voice Enabled</span> */}
                     </div>
 
                     {/* Progress Bar */}
