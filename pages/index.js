@@ -1,4 +1,3 @@
-// pages/index.js - PART 1 (First Half)
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Play, RotateCcw, CheckCircle, Edit3, Zap, Target, TrendingUp, Plus } from 'lucide-react';
 import Head from 'next/head';
@@ -262,9 +261,6 @@ export default function WorkoutScannerApp() {
       return patterns.some(pattern => pattern.test(line));
     }).length;
   };
-
-// CONTINUE WITH PART 2...
-
 // pages/index.js - PART 2 (Second Half)
 // CONTINUE FROM PART 1...
 
