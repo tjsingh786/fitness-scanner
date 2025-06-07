@@ -261,8 +261,6 @@ export default function WorkoutScannerApp() {
       return patterns.some(pattern => pattern.test(line));
     }).length;
   };
-// pages/index.js - PART 2 (Second Half)
-// CONTINUE FROM PART 1...
 
   const captureAndScan = async () => {
     if (!videoRef.current) {
