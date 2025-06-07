@@ -26,8 +26,8 @@ export default function WorkoutScannerApp() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // Initialize speech recognition
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) { // Ensure SpeechRecognition is defined before instantiating
         recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = false;
         recognitionRef.current.interimResults = false;
@@ -40,14 +40,17 @@ export default function WorkoutScannerApp() {
           setIsListening(false);
         };
 
-        recognitionRef.current.onerror = () => {
-          showNotification('Voice recognition error', 'error');
+        recognitionRef.current.onerror = (event) => { // Added event parameter for more details
+          console.error("Speech Recognition Error:", event.error); // Log error type
+          showNotification(`Voice recognition error: ${event.error}`, 'error');
           setIsListening(false);
         };
 
         recognitionRef.current.onend = () => {
           setIsListening(false);
         };
+      } else {
+        showNotification('Speech Recognition not supported in this browser.', 'error');
       }
     }
   }, []);
@@ -69,7 +72,7 @@ export default function WorkoutScannerApp() {
   const startCamera = async () => {
     try {
       console.log('Starting camera...');
-      
+
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -88,7 +91,7 @@ export default function WorkoutScannerApp() {
         videoRef.current.srcObject = null;
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        
+
         setTimeout(async () => {
           try {
             await videoRef.current.play();
@@ -101,10 +104,10 @@ export default function WorkoutScannerApp() {
           }
         }, 100);
       }
-      
+
       setIsScanning(true);
       showNotification('Camera started! 📸', 'success');
-      
+
     } catch (error) {
       console.error('Camera error:', error);
       showNotification('Camera unavailable - check permissions', 'error');
@@ -129,9 +132,12 @@ export default function WorkoutScannerApp() {
         recognitionRef.current.start();
         showNotification('Listening... 🎤', 'info');
       } catch (error) {
-        showNotification('Voice input not supported', 'error');
+        showNotification('Voice input not supported or failed to start.', 'error'); // More specific error message
         setIsListening(false);
+        console.error("Error starting voice input:", error); // Log the actual error
       }
+    } else if (!recognitionRef.current) {
+      showNotification('Voice input is not available on this device/browser.', 'error');
     }
   };
 
@@ -142,18 +148,21 @@ export default function WorkoutScannerApp() {
   };
 
   const speakText = (text) => {
-    if ('speechSynthesis' in window) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) { // Check window for SSR safety
       window.speechSynthesis.cancel();
-      
+
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.9;
       utterance.pitch = 1;
       utterance.volume = 0.8;
-      
+
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      
+      utterance.onerror = (event) => {
+        console.error("Speech Synthesis Error:", event); // Log speech error
+        setIsSpeaking(false);
+      };
+
       window.speechSynthesis.speak(utterance);
       showNotification('🔊 Speaking...', 'info');
     } else {
@@ -191,7 +200,7 @@ export default function WorkoutScannerApp() {
     try {
       if (tesseractLoaded && window.Tesseract) {
         showNotification('Running OCR on your image...', 'info');
-        
+
         const { data: { text } } = await window.Tesseract.recognize(file, 'eng', {
           logger: m => {
             if (m.status === 'recognizing text') {
@@ -200,15 +209,15 @@ export default function WorkoutScannerApp() {
             }
           }
         });
-        
+
         console.log('OCR Result from upload:', text);
-        
+
         if (text.trim()) {
           setInputText(text.trim());
           parseWorkoutText(text.trim());
           setActiveTab('workout');
           showNotification('✅ Photo scanned successfully!', 'success');
-          
+
           // Count exercises and speak result
           const exerciseCount = countExercises(text.trim());
           setTimeout(() => {
@@ -230,13 +239,13 @@ export default function WorkoutScannerApp() {
           } else {
             demoText = "Bench Press 3x10\nSquats 4x12\nPush-ups 3x15\nDeadlift 5x5\nPull-ups 3x8";
           }
-          
+
           setInputText(demoText);
           parseWorkoutText(demoText);
           setActiveTab('workout');
           showNotification(`✅ Demo scan complete for ${file.name}!`, 'success');
-          
-          const exerciseCount = demoText.split('\n').length;
+
+          const exerciseCount = demoText.split('\n').filter(line => line.trim()).length; // Corrected count for demo
           speakText(`Demo scan complete! Found ${exerciseCount} exercises.`);
         }, 2000);
       }
@@ -246,7 +255,7 @@ export default function WorkoutScannerApp() {
       speakText('Failed to process image. Please try again.');
     } finally {
       setIsUploading(false);
-      event.target.value = '';
+      event.target.value = ''; // Clear file input
     }
   };
 
@@ -257,10 +266,12 @@ export default function WorkoutScannerApp() {
         /\d+\s*[x*]\s*\d+/i,
         /\d+\s+sets?\s+of\s+\d+/i,
         /\d+\s*sets?\s*[\-–]\s*\d+\s*reps?/i,
+        /\d+\s+minutes?/i, // For time-based like "Running 30 minutes"
       ];
       return patterns.some(pattern => pattern.test(line));
     }).length;
   };
+
 
   const captureAndScan = async () => {
     if (!videoRef.current) {
@@ -275,17 +286,17 @@ export default function WorkoutScannerApp() {
       if (tesseractLoaded && window.Tesseract) {
         const canvas = canvasRef.current;
         const video = videoRef.current;
-        
+
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
-        
+
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0);
-        
+
         canvas.toBlob(async (blob) => {
           try {
             showNotification('Running OCR on captured image...', 'info');
-            
+
             const { data: { text } } = await window.Tesseract.recognize(blob, 'eng', {
               logger: m => {
                 if (m.status === 'recognizing text') {
@@ -294,15 +305,15 @@ export default function WorkoutScannerApp() {
                 }
               }
             });
-            
+
             console.log('Camera OCR Result:', text);
-            
+
             if (text.trim()) {
               setInputText(text.trim());
               parseWorkoutText(text.trim());
               setActiveTab('workout');
               showNotification('✅ Text captured successfully!', 'success');
-              
+
               const exerciseCount = countExercises(text.trim());
               setTimeout(() => {
                 speakText(`Camera scan complete! Found ${exerciseCount} exercises.`);
@@ -321,6 +332,7 @@ export default function WorkoutScannerApp() {
         }, 'image/jpeg', 0.95);
       } else {
         // Demo mode fallback
+        showNotification('OCR not ready. Using demo scan...', 'info'); // Added notification for demo mode
         setTimeout(() => {
           const demoText = "Bench Press 3x10\nSquats 4x12\nPush-ups 3x15\nDeadlift 5x5\nPull-ups 3x8";
           setInputText(demoText);
@@ -357,7 +369,7 @@ export default function WorkoutScannerApp() {
         estimatedTime: Math.round(parsedWorkouts.reduce((acc, w) => acc + (w.sets * (w.restTime + 30)), 0) / 60)
       });
       showNotification(`${parsedWorkouts.length} exercises loaded! 💪`, 'success');
-      
+
       const exerciseNames = parsedWorkouts.map(w => w.name).join(', ');
       setTimeout(() => {
         speakText(`Workout created with ${parsedWorkouts.length} exercises: ${exerciseNames}`);
@@ -373,17 +385,19 @@ export default function WorkoutScannerApp() {
       /^(.+?)\s+(\d+)\s*[x*]\s*(\d+)$/i,
       /^(.+?)\s+(\d+)\s+sets?\s+of\s+(\d+)$/i,
       /^(.+?)\s+(\d+)\s*sets?\s*[\-–]\s*(\d+)\s*reps?$/i,
-      /^(.+?)\s+(\d+)\s+minutes?$/i, // For cardio
+      /^(.+?)\s+(\d+)\s+minutes?$/i, // For cardio (e.g., Running 30 minutes)
     ];
 
     for (let pattern of patterns) {
       const match = line.match(pattern);
       if (match) {
+        // If it's a "minutes" match, reps should be 1 (for consistency in calculations)
+        const isTimeBased = line.toLowerCase().includes('minutes');
         return {
           id: Date.now() + Math.random(),
           name: match[1].trim(),
-          sets: parseInt(match[2]),
-          reps: parseInt(match[3]) || 1, // For time-based exercises
+          sets: isTimeBased ? 1 : parseInt(match[2]), // For time-based, consider 1 set
+          reps: isTimeBased ? parseInt(match[2]) : parseInt(match[3]) || 1, // reps become minutes for time-based
           restTime: getDefaultRestTime(match[1].trim()),
           completed: 0,
           isActive: false,
@@ -400,40 +414,51 @@ export default function WorkoutScannerApp() {
       return 180;
     } else if (exercise.includes('curl') || exercise.includes('extension') || exercise.includes('raise')) {
       return 60;
-    } else {
+    } else if (exercise.includes('run') || exercise.includes('jog') || exercise.includes('cardio')) { // Added for cardio
+      return 0; // No rest time for continuous cardio
+    }
+    else {
       return 90;
     }
   };
 
   const startSet = (exerciseId) => {
-    setWorkouts(prev => prev.map(w => 
+    setWorkouts(prev => prev.map(w =>
       w.id === exerciseId ? { ...w, isActive: true } : w
     ));
-    
+
     const workout = workouts.find(w => w.id === exerciseId);
     if (workout) {
-      speakText(`Starting ${workout.name}. ${workout.reps} reps, go!`);
+      const isTimeBased = workout.name.toLowerCase().includes('minutes');
+      if (isTimeBased) {
+        speakText(`Starting ${workout.reps} minutes of ${workout.name}.`);
+      } else {
+        speakText(`Starting ${workout.name}. ${workout.reps} reps, go!`);
+      }
     }
   };
 
   const completeSet = (exerciseId) => {
-    setWorkouts(prev => prev.map(w => 
-      w.id === exerciseId ? { 
-        ...w, 
+    setWorkouts(prev => prev.map(w =>
+      w.id === exerciseId ? {
+        ...w,
         completed: Math.min(w.completed + 1, w.sets),
         isActive: false
       } : w
     ));
-    
+
     const workout = workouts.find(w => w.id === exerciseId);
-    if (workout && workout.completed + 1 < workout.sets) {
-      startRestTimer(exerciseId, workout.restTime);
-      speakText(`Set complete! Rest for ${workout.restTime} seconds.`);
-    } else {
-      showNotification('Exercise complete! 🔥', 'success');
-      speakText(`Excellent! ${workout.name} completed!`);
+    if (workout) { // Ensure workout is found before accessing its properties
+      if (workout.completed < workout.sets) { // Check if there are more sets to do
+        startRestTimer(exerciseId, workout.restTime);
+        speakText(`Set complete! Rest for ${workout.restTime} seconds.`);
+      } else {
+        showNotification('Exercise complete! 🔥', 'success');
+        speakText(`Excellent! ${workout.name} completed!`);
+      }
     }
   };
+
 
   const startRestTimer = (exerciseId, restTime) => {
     let timeLeft = restTime;
@@ -442,9 +467,9 @@ export default function WorkoutScannerApp() {
         ...prev,
         [exerciseId]: timeLeft
       }));
-      
+
       timeLeft--;
-      
+
       if (timeLeft < 0) {
         clearInterval(timerId);
         setActiveTimers(prev => {
@@ -459,10 +484,10 @@ export default function WorkoutScannerApp() {
   };
 
   const resetExercise = (exerciseId) => {
-    setWorkouts(prev => prev.map(w => 
+    setWorkouts(prev => prev.map(w =>
       w.id === exerciseId ? { ...w, completed: 0, isActive: false } : w
     ));
-    
+
     setActiveTimers(prev => {
       const newTimers = { ...prev };
       delete newTimers[exerciseId];
@@ -501,7 +526,7 @@ export default function WorkoutScannerApp() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Script 
+      <Script
         src="https://unpkg.com/tesseract.js@v4.1.1/dist/tesseract.min.js"
         onLoad={() => setTesseractLoaded(true)}
         strategy="beforeInteractive"
@@ -509,14 +534,14 @@ export default function WorkoutScannerApp() {
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <canvas ref={canvasRef} style={{ display: 'none' }} />
-        
+
         {/* Status Bar */}
         <div className="bg-black/20 backdrop-blur-sm px-6 py-3 flex justify-between items-center text-white text-sm">
           <span className="font-medium">
-            {new Date().toLocaleTimeString('en-US', { 
-              hour: 'numeric', 
+            {new Date().toLocaleTimeString('en-US', {
+              hour: 'numeric',
               minute: '2-digit',
-              hour12: true 
+              hour12: true
             })}
           </span>
           <span className="font-bold text-lg">FitnessPro</span>
@@ -550,8 +575,8 @@ export default function WorkoutScannerApp() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl transition-all duration-200 ${
-                  activeTab === tab.id 
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg' 
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
                     : 'text-white/70'
                 }`}
               >
@@ -607,7 +632,7 @@ export default function WorkoutScannerApp() {
                       minHeight: '100%'
                     }}
                   />
-                  
+
                   {!isScanning && (
                     <div className="flex items-center justify-center h-full absolute inset-0">
                       <div className="text-center">
@@ -642,7 +667,7 @@ export default function WorkoutScannerApp() {
                         <Camera size={20} />
                         Start Camera
                       </button>
-                      
+
                       <button
                         onClick={uploadPhoto}
                         disabled={isUploading}
@@ -699,7 +724,7 @@ export default function WorkoutScannerApp() {
                     </div>
                   </div>
                 </div>
-                
+
                 <textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
@@ -707,14 +732,14 @@ export default function WorkoutScannerApp() {
                   className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-2xl p-4 mb-4 resize-none focus:outline-none focus:border-purple-400 transition-colors"
                   rows={4}
                 />
-                
+
                 {/* Voice and TTS Controls */}
                 <div className="flex gap-3 mb-4">
                   <button
                     onClick={isListening ? stopVoiceInput : startVoiceInput}
                     className={`flex-1 py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg transition-all ${
-                      isListening 
-                        ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse' 
+                      isListening
+                        ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
                         : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:shadow-green-500/25 hover:-translate-y-0.5'
                     }`}
                   >
@@ -726,12 +751,12 @@ export default function WorkoutScannerApp() {
                     </svg>
                     {isListening ? '🔴 Stop Listening' : '🎤 Voice Input'}
                   </button>
-                  
+
                   <button
                     onClick={readWorkoutAloud}
                     disabled={isSpeaking || !inputText.trim()}
                     className={`flex-1 py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50 ${
-                      isSpeaking 
+                      isSpeaking
                         ? 'bg-indigo-600 text-white animate-pulse'
                         : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:shadow-indigo-500/25 hover:-translate-y-0.5'
                     }`}
@@ -744,7 +769,7 @@ export default function WorkoutScannerApp() {
                     {isSpeaking ? '🔊 Speaking...' : '🔊 Read Aloud'}
                   </button>
                 </div>
-                
+
                 <button
                   onClick={() => parseWorkoutText(inputText)}
                   disabled={!inputText.trim()}
@@ -769,7 +794,7 @@ export default function WorkoutScannerApp() {
                       <span>~{currentWorkout.estimatedTime} min</span>
                       <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">🎙️ Voice Enabled</span>
                     </div>
-                    
+
                     {/* Progress Bar */}
                     <div className="mt-4">
                       <div className="flex justify-between text-sm text-white/70 mb-2">
@@ -777,7 +802,7 @@ export default function WorkoutScannerApp() {
                         <span>{getProgressPercentage()}%</span>
                       </div>
                       <div className="h-2 bg-black/30 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className="h-full bg-gradient-to-r from-purple-400 to-pink-400 transition-all duration-500"
                           style={{ width: `${getProgressPercentage()}%` }}
                         />
@@ -791,8 +816,8 @@ export default function WorkoutScannerApp() {
                       <div
                         key={workout.id}
                         className={`bg-white/10 backdrop-blur-md rounded-2xl p-5 border transition-all duration-200 hover:translate-x-1 ${
-                          workout.isActive 
-                            ? 'border-green-400/50 bg-green-500/10' 
+                          workout.isActive
+                            ? 'border-green-400/50 bg-green-500/10'
                             : 'border-white/20'
                         }`}
                       >
@@ -801,7 +826,7 @@ export default function WorkoutScannerApp() {
                             <h3 className="text-lg font-bold text-white capitalize">{workout.name}</h3>
                             <p className="text-white/60">{workout.sets} sets × {workout.reps} reps</p>
                           </div>
-                          
+
                           <div className="text-right">
                             <div className="text-2xl font-bold text-white">
                               {workout.completed}/{workout.sets}
@@ -820,8 +845,8 @@ export default function WorkoutScannerApp() {
                             <div
                               key={i}
                               className={`h-2 flex-1 rounded-full transition-all ${
-                                i < workout.completed 
-                                  ? 'bg-gradient-to-r from-green-400 to-emerald-400' 
+                                i < workout.completed
+                                  ? 'bg-gradient-to-r from-green-400 to-emerald-400'
                                   : 'bg-white/20'
                               }`}
                             />
@@ -844,7 +869,7 @@ export default function WorkoutScannerApp() {
                                 <Play size={16} />
                                 {workout.isActive ? 'In Progress' : 'Start Set'}
                               </button>
-                              
+
                               <button
                                 onClick={() => completeSet(workout.id)}
                                 disabled={!workout.isActive}
@@ -855,14 +880,14 @@ export default function WorkoutScannerApp() {
                               </button>
                             </>
                           )}
-                          
+
                           {workout.completed === workout.sets && (
                             <div className="flex-1 bg-green-500/20 text-green-400 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 border border-green-400/30">
                               <CheckCircle size={16} />
                               Completed! 🎉
                             </div>
                           )}
-                          
+
                           <button
                             onClick={() => resetExercise(workout.id)}
                             className="px-4 bg-white/10 text-white py-3 rounded-xl border border-white/20 hover:bg-white/20 transition-all"
@@ -919,7 +944,7 @@ export default function WorkoutScannerApp() {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="mt-6 pt-4 border-t border-white/20">
                     <div className="text-center">
                       <div className="text-3xl font-bold text-white">{getProgressPercentage()}%</div>
