@@ -253,7 +253,7 @@ function UserSelection({ onUserSelect }) {
   );
 }
 
-function CalendarView({ customWorkouts, onDateSelect }) {
+function CalendarView({ customWorkouts, onDateSelect, onSwitchToCreate }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   
   const today = new Date();
@@ -304,7 +304,9 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   
   const handleDateClick = (day) => {
     if (!isPastDate(day)) {
-      onDateSelect(getDateString(day));
+      const dateString = getDateString(day);
+      onDateSelect(dateString);
+      onSwitchToCreate(); // Switch to create tab
     }
   };
   
@@ -570,7 +572,11 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts }) {
                 <h1 className="text-2xl font-bold text-white mb-2">Calendar View</h1>
               </div>
 
-              <CalendarView customWorkouts={customWorkouts} onDateSelect={setSelectedDate} />
+              <CalendarView 
+                customWorkouts={customWorkouts} 
+                onDateSelect={setSelectedDate} 
+                onSwitchToCreate={() => setActiveTab('create')}
+              />
             </div>
           )}
         </div>
