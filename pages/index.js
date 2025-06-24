@@ -7,7 +7,6 @@ import Head from 'next/head';
 const SUPABASE_URL = 'https://rfjzrurkbgogjowskiuz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmanpydXJrYmdvZ2pvd3NraXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTM0NzgsImV4cCI6MjA2NjMyOTQ3OH0.fmtcoR61pFIMR5R3w07O-CypoQ0Y0_7yQE4GWftdEG4';
 
-
 // Simple Supabase client (you can also use the official supabase-js client)
 class SupabaseClient {
   constructor(url, key) {
@@ -1299,6 +1298,59 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                     >
                       <ChevronLeft size={14} className="inline-block mr-2" /> Back to Packages
                     </button>
+                  </div>-white/50 border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-purple-400"
+                    />
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-white/80 text-sm">Exercises</span>
+                        <button
+                          onClick={() => setExercises([...exercises, ''])}
+                          className="bg-purple-500 text-white px-2 py-1 rounded-lg text-xs flex items-center gap-1"
+                        >
+                          <Plus size={12} />
+                          Add
+                        </button>
+                      </div>
+                      {exercises.map((exercise, index) => (
+                        <div key={index} className="flex gap-2 mb-2">
+                          <input
+                            type="text"
+                            value={exercise}
+                            onChange={(e) => {
+                              const newExercises = [...exercises];
+                              newExercises[index] = e.target.value;
+                              setExercises(newExercises);
+                            }}
+                            placeholder="e.g., Push-ups 3x10"
+                            className="flex-1 bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-lg py-2 px-3 focus:outline-none focus:border-purple-400"
+                          />
+                          {exercises.length > 1 && (
+                            <button
+                              onClick={() => setExercises(exercises.filter((_, i) => i !== index))}
+                              className="bg-red-500/20 text-red-400 px-2 py-2 rounded-lg"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={createManualWorkoutForDate}
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Save size={16} />}
+                      {loading ? 'Saving...' : 'Save Workout'}
+                    </button>
+                    <button
+                      onClick={() => setIsCreatingManualWorkout(false)}
+                      className="w-full mt-2 bg-white/10 text-white py-2 rounded-xl text-sm border border-white/20"
+                    >
+                      <ChevronLeft size={14} className="inline-block mr-2" /> Back to Packages
+                    </button>
                   </div>
                 </>
               )}
@@ -1508,10 +1560,20 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
       });
       setWorkoutStartTime(Date.now());
       
+      // Debug log for notes
+      console.log('Today\'s workout:', todaysWorkout);
+      console.log('Workout notes:', todaysWorkout.notes);
+      
       // Check if there are coach notes to show
       if (todaysWorkout.notes && todaysWorkout.notes.trim()) {
         setWorkoutNotes(todaysWorkout.notes);
-        setTimeout(() => setShowNotesModal(true), 1500); // Show after greeting
+        console.log('Setting notes modal to show in 1.5s');
+        setTimeout(() => {
+          console.log('Showing notes modal now');
+          setShowNotesModal(true);
+        }, 1500); // Show after greeting
+      } else {
+        console.log('No notes found for today\'s workout');
       }
       
       showNotification(`${todaysWorkout.name} loaded! 💪`, 'success');
@@ -1545,11 +1607,24 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
     }
   };
 
+  const completeWorkoutQuickly = () => {
+    if (!currentWorkout || !workoutStartTime) return;
+    
+    const workoutDuration = Math.floor((Date.now() - workoutStartTime) / 1000);
+    const totalExercises = workouts.length;
+    
+    setShowCompletion(true);
+    setCurrentWorkout(prev => ({
+      ...prev,
+      duration: workoutDuration,
+      completedExercises: totalExercises, // Mark all as complete
+      totalExercises: totalExercises
+    }));
+  };
+
   const resetExercise = (exerciseId) => {
     setWorkouts(prev => prev.map(w => w.id === exerciseId ? { ...w, completed: 0, isActive: false } : w));
   };
-
-  const getProgressPercentage = () => {
     if (workouts.length === 0) return 0;
     const totalSets = workouts.reduce((acc, w) => acc + w.sets, 0);
     const completedSets = workouts.reduce((acc, w) => acc + w.completed, 0);
@@ -1658,6 +1733,11 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
                 <Dumbbell size={20} className={isCustomWorkout ? "text-green-400" : "text-purple-400"} />
                 <h2 className="text-xl font-bold text-white">{todaysWorkout.name}</h2>
                 {isCustomWorkout && <span className="bg-green-500/20 text-green-300 text-xs px-2 py-1 rounded-full">Coach</span>}
+                {todaysWorkout.notes && todaysWorkout.notes.trim() && (
+                  <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                    📝 Notes
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1 text-white/70">
                 <Clock size={14} />
@@ -1691,6 +1771,30 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
               <Target size={16} />
               Start {currentDay}'s Workout
             </button>
+
+            {/* Quick Complete Button and Notes Button - Show only when workout is active */}
+            {currentWorkout && workoutStartTime && (
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={completeWorkoutQuickly}
+                  className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                >
+                  <Trophy size={16} />
+                  Quick Complete
+                </button>
+                {todaysWorkout.notes && todaysWorkout.notes.trim() && (
+                  <button
+                    onClick={() => {
+                      setWorkoutNotes(todaysWorkout.notes);
+                      setShowNotesModal(true);
+                    }}
+                    className="bg-blue-500/20 text-blue-300 px-4 py-3 rounded-xl border border-blue-400/30 flex items-center gap-2"
+                  >
+                    📝 Notes
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {workouts.length > 0 && (
@@ -1861,8 +1965,8 @@ export default function App() {
             exercises: workout.exercises,
             focus: workout.focus,
             duration: workout.duration,
-            created_by: workout.created_by,
-            notes: workout.notes // Ensure notes are loaded
+            notes: workout.notes || '', // Include notes
+            created_by: workout.created_by
           };
         });
         setCustomWorkouts(workoutsMap);
