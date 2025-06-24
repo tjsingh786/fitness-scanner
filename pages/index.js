@@ -85,7 +85,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
             <div className="text-center mb-2"> {/* Changed mb-4 to mb-2 */}
               {/* INCREASED SIZE FOR LOGO (no change here from last turn) */}
               {/* Reduced mb-6 here to mb-4 or mb-2, let's try mb-4 */}
-              <div className="w-64 h-64 mx-auto mb-4 flex items-center justify-center">
+              <div className="w-86 h-86 mx-auto mb-4 flex items-center justify-center">
                 <img
                   src="/img.png"
                   alt="Dire Crossfit Logo"
