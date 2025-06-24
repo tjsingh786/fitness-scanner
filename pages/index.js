@@ -3,6 +3,103 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Play, CheckCircle, RotateCcw, Eye, EyeOff, Lock, User, Shield, Calendar, Dumbbell, Clock, Trophy, Users, ChevronDown, Search, CalendarDays, BookOpen, Settings, Save, X, Target, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import Head from 'next/head';
 
+// Supabase configuration
+const SUPABASE_URL = 'https://rfjzrurkbgogjowskiuz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmanpydXJrYmdvZ2pvd3NraXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTM0NzgsImV4cCI6MjA2NjMyOTQ3OH0.fmtcoR61pFIMR5R3w07O-CypoQ0Y0_7yQE4GWftdEG4';
+
+// Simple Supabase client (you can also use the official supabase-js client)
+class SupabaseClient {
+  constructor(url, key) {
+    this.url = url;
+    this.key = key;
+  }
+
+  async request(endpoint, options = {}) {
+    const response = await fetch(`${this.url}/rest/v1${endpoint}`, {
+      headers: {
+        'apikey': this.key,
+        'Authorization': `Bearer ${this.key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation',
+        ...options.headers
+      },
+      ...options
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Supabase error: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  // Users table operations
+  async getUsers() {
+    return this.request('/users?select=*');
+  }
+
+  async createUser(user) {
+    return this.request('/users', {
+      method: 'POST',
+      body: JSON.stringify(user)
+    });
+  }
+
+  async deleteUser(userId) {
+    return this.request(`/users?id=eq.${userId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  // Custom workouts operations
+  async getCustomWorkouts() {
+    return this.request('/custom_workouts?select=*');
+  }
+
+  async upsertCustomWorkout(workout) {
+    return this.request('/custom_workouts', {
+      method: 'POST',
+      body: JSON.stringify(workout),
+      headers: {
+        'Prefer': 'resolution=merge-duplicates'
+      }
+    });
+  }
+
+  // Workout packages operations
+  async getWorkoutPackages() {
+    return this.request('/workout_packages?select=*');
+  }
+
+  async createWorkoutPackage(package_) {
+    return this.request('/workout_packages', {
+      method: 'POST',
+      body: JSON.stringify(package_)
+    });
+  }
+
+  async deleteWorkoutPackage(packageId) {
+    return this.request(`/workout_packages?id=eq.${packageId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  // Workout logs operations
+  async getWorkoutLogs() {
+    return this.request('/workout_logs?select=*&order=created_at.desc');
+  }
+
+  async createWorkoutLog(log) {
+    return this.request('/workout_logs', {
+      method: 'POST',
+      body: JSON.stringify(log)
+    });
+  }
+}
+
+const supabase = new SupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const SYSTEM_USERS = [
   { id: 'akshay', name: 'Akshay', avatar: '💪', color: 'from-blue-500 to-cyan-500' },
   { id: 'ravish', name: 'Ravish', avatar: '🔥', color: 'from-orange-500 to-red-500' }
@@ -18,6 +115,28 @@ const DEFAULT_WORKOUTS = {
   Sunday: { name: "Rest", exercises: ["Stretching 15 minutes", "Meditation 10 minutes"], focus: "Mental", duration: "25 min" }
 };
 
+// Database operations hook
+function useDatabase() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleOperation = async (operation) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await operation();
+      return result;
+    } catch (err) {
+      setError(err.message);
+      console.error('Database operation failed:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { loading, error, handleOperation };
+}
 
 function LoginPage({ onLogin, onCoachLogin }) {
   const [username, setUsername] = useState('');
@@ -78,11 +197,9 @@ function LoginPage({ onLogin, onCoachLogin }) {
           </div>
         )}
 
-        {/* Adjusted py-8 to py-4 to reduce overall vertical padding */}
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-4">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              {/* Adjusted mb-6 to mb-2 for less space below logo */}
               <div className="w-32 h-32 mx-auto mb-2 flex items-center justify-center">
                 <img 
                   src="/img.png"
@@ -159,8 +276,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
   );
 }
 
-
-function UserSelection({ onUserSelect }) {
+function UserSelection({ onUserSelect, users }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
@@ -170,7 +286,7 @@ function UserSelection({ onUserSelect }) {
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 2000);
   };
 
-  const filteredUsers = SYSTEM_USERS.filter(user => user.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredUsers = users.filter(user => user.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const handleUserSelect = (user) => {
     showNotification(`Welcome ${user.name}! 👋`, 'success');
@@ -312,8 +428,6 @@ function CalendarView({ customWorkouts, onDateSelect }) {
     if (date >= new Date(today.getFullYear(), today.getMonth(), today.getDate())) { 
       const dateString = getDateString(day);
       onDateSelect(dateString);
-    } else {
-      console.log("Past dates are not selectable for new assignments in this demo context.");
     }
   };
   
@@ -417,43 +531,72 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
   const [newUserAvatar, setNewUserAvatar] = useState('');
   const [newUserColor, setNewUserColor] = useState('from-gray-500 to-gray-600');
 
+  const { loading, error, handleOperation } = useDatabase();
+
   const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 2000);
   };
 
-  const saveWorkoutPackage = () => {
+  const saveWorkoutPackage = async () => {
     if (!workoutName.trim() || exercises.filter(e => e.trim()).length === 0) {
       showNotification('Please fill all fields for the package', 'error');
       return;
     }
 
-    const workoutPackage = {
-      id: Date.now(),
-      name: workoutName,
-      exercises: exercises.filter(e => e.trim()),
-      focus: 'Custom',
-      duration: '30-45 min', 
-      createdBy: 'Coach',
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const workoutPackage = {
+        name: workoutName,
+        exercises: exercises.filter(e => e.trim()),
+        focus: 'Custom',
+        duration: '30-45 min', 
+        created_by: 'Coach',
+        created_at: new Date().toISOString()
+      };
 
-    setWorkoutPackages(prev => [...prev, workoutPackage]);
-    showNotification(`Workout package "${workoutName}" created! 💪`, 'success');
-    setWorkoutName('');
-    setExercises(['']);
+      await handleOperation(() => supabase.createWorkoutPackage(workoutPackage));
+      
+      // Add to local state with generated ID
+      const newPackage = { ...workoutPackage, id: Date.now() };
+      setWorkoutPackages(prev => [...prev, newPackage]);
+      
+      showNotification(`Workout package "${workoutName}" created! 💪`, 'success');
+      setWorkoutName('');
+      setExercises(['']);
+    } catch (err) {
+      showNotification('Failed to save workout package', 'error');
+    }
   };
 
-  const deleteWorkoutPackage = (packageId) => {
-    setWorkoutPackages(prev => prev.filter(pkg => pkg.id !== packageId));
-    showNotification('Workout package deleted', 'success');
+  const deleteWorkoutPackage = async (packageId) => {
+    try {
+      await handleOperation(() => supabase.deleteWorkoutPackage(packageId));
+      setWorkoutPackages(prev => prev.filter(pkg => pkg.id !== packageId));
+      showNotification('Workout package deleted', 'success');
+    } catch (err) {
+      showNotification('Failed to delete workout package', 'error');
+    }
   };
 
-  const assignPackageToDate = (date, packageData) => {
-    setCustomWorkouts(prev => ({ ...prev, [date]: packageData }));
-    showNotification(`Workout assigned to ${new Date(date).toLocaleDateString()}! 📅`, 'success');
-    setShowDateModal(false);
-    setIsCreatingManualWorkout(false); 
+  const assignPackageToDate = async (date, packageData) => {
+    try {
+      const workoutData = {
+        date: date,
+        name: packageData.name,
+        exercises: packageData.exercises,
+        focus: packageData.focus,
+        duration: packageData.duration,
+        created_by: 'Coach'
+      };
+
+      await handleOperation(() => supabase.upsertCustomWorkout(workoutData));
+      setCustomWorkouts(prev => ({ ...prev, [date]: packageData }));
+      showNotification(`Workout assigned to ${new Date(date).toLocaleDateString()}! 📅`, 'success');
+      setShowDateModal(false);
+      setIsCreatingManualWorkout(false); 
+    } catch (err) {
+      showNotification('Failed to assign workout', 'error');
+    }
   };
 
   const handleDateSelect = (date) => {
@@ -464,59 +607,79 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
     setShowDateModal(true);
   };
 
-  const createManualWorkoutForDate = () => {
+  const createManualWorkoutForDate = async () => {
     if (!selectedDate || !workoutName.trim() || exercises.filter(e => e.trim()).length === 0) {
       showNotification('Please fill all fields for the manual workout', 'error');
       return;
     }
-    const workout = {
-      name: workoutName,
-      exercises: exercises.filter(e => e.trim()),
-      focus: 'Custom', 
-      duration: '30-45 min', 
-      createdBy: 'Coach'
-    };
-    setCustomWorkouts(prev => ({ ...prev, [selectedDate]: workout }));
-    showNotification(`Manual workout created for ${new Date(selectedDate).toLocaleDateString()}! 💪`, 'success');
-    setShowDateModal(false);
-    setIsCreatingManualWorkout(false); 
-    setSelectedDate('');
-    setWorkoutName('');
-    setExercises(['']);
+    
+    try {
+      const workout = {
+        date: selectedDate,
+        name: workoutName,
+        exercises: exercises.filter(e => e.trim()),
+        focus: 'Custom', 
+        duration: '30-45 min', 
+        created_by: 'Coach'
+      };
+
+      await handleOperation(() => supabase.upsertCustomWorkout(workout));
+      setCustomWorkouts(prev => ({ ...prev, [selectedDate]: workout }));
+      showNotification(`Manual workout created for ${new Date(selectedDate).toLocaleDateString()}! 💪`, 'success');
+      setShowDateModal(false);
+      setIsCreatingManualWorkout(false); 
+      setSelectedDate('');
+      setWorkoutName('');
+      setExercises(['']);
+    } catch (err) {
+      showNotification('Failed to create workout', 'error');
+    }
   };
 
-
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newUserName.trim() || !newUserAvatar.trim()) {
       showNotification('Please enter user name and avatar', 'error');
       return;
     }
+    
     const newUser = {
       id: newUserName.toLowerCase().replace(/\s/g, '-'), 
       name: newUserName,
       avatar: newUserAvatar,
       color: newUserColor
     };
+    
     if (users.some(user => user.name.toLowerCase() === newUserName.trim().toLowerCase())) {
-        showNotification(`User "${newUserName}" already exists.`, 'error');
-        return;
+      showNotification(`User "${newUserName}" already exists.`, 'error');
+      return;
     }
-    setUsers(prev => [...prev, newUser]);
-    showNotification(`User "${newUserName}" added!`, 'success');
-    setNewUserName('');
-    setNewUserAvatar('');
-    setNewUserColor('from-gray-500 to-gray-600');
+
+    try {
+      await handleOperation(() => supabase.createUser(newUser));
+      setUsers(prev => [...prev, newUser]);
+      showNotification(`User "${newUserName}" added!`, 'success');
+      setNewUserName('');
+      setNewUserAvatar('');
+      setNewUserColor('from-gray-500 to-gray-600');
+    } catch (err) {
+      showNotification('Failed to add user', 'error');
+    }
   };
 
-  const handleDeleteUser = (userId) => {
+  const handleDeleteUser = async (userId) => {
     if (SYSTEM_USERS.some(u => u.id === userId)) {
       showNotification('Cannot delete system users (Akshay, Ravish).', 'error');
       return;
     }
-    setUsers(prev => prev.filter(user => user.id !== userId));
-    showNotification('User deleted!', 'success');
-  };
 
+    try {
+      await handleOperation(() => supabase.deleteUser(userId));
+      setUsers(prev => prev.filter(user => user.id !== userId));
+      showNotification('User deleted!', 'success');
+    } catch (err) {
+      showNotification('Failed to delete user', 'error');
+    }
+  };
 
   return (
     <>
@@ -537,6 +700,15 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
             notification.type === 'success' ? 'bg-green-500/20 border-green-400/30 text-green-100' : 'bg-red-500/20 border-red-400/30 text-red-100'
           }`}>
             <p className="font-medium text-center">{notification.message}</p>
+          </div>
+        )}
+
+        {loading && (
+          <div className="fixed top-20 left-4 right-4 z-50 p-4 rounded-xl backdrop-blur-md border bg-blue-500/20 border-blue-400/30 text-blue-100">
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-300/30 border-t-blue-300 rounded-full animate-spin"></div>
+              <p className="font-medium">Saving to database...</p>
+            </div>
           </div>
         )}
 
@@ -638,10 +810,11 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
 
                   <button
                     onClick={saveWorkoutPackage}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Save size={16} />
-                    Save Package
+                    {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Save size={16} />}
+                    {loading ? 'Saving...' : 'Save Package'}
                   </button>
                 </div>
               </div>
@@ -658,7 +831,8 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                         </div>
                         <button
                           onClick={() => deleteWorkoutPackage(pkg.id)}
-                          className="bg-red-500/20 text-red-400 px-2 py-2 rounded-lg"
+                          disabled={loading}
+                          className="bg-red-500/20 text-red-400 px-2 py-2 rounded-lg disabled:opacity-50"
                         >
                           <X size={14} />
                         </button>
@@ -715,10 +889,11 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                   </select>
                   <button
                     onClick={handleAddUser}
-                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Plus size={16} />
-                    Add User
+                    {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Plus size={16} />}
+                    {loading ? 'Adding...' : 'Add User'}
                   </button>
                 </div>
               </div>
@@ -732,14 +907,19 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                         <div className={`w-10 h-10 bg-gradient-to-r ${user.color} rounded-full flex items-center justify-center`}>
                           {user.avatar}
                         </div>
-                        <span className="text-white font-medium">{user.name}</span>
+                        <div>
+                          <span className="text-white font-medium">{user.name}</span>
+                          {SYSTEM_USERS.some(u => u.id === user.id) && (
+                            <div className="text-xs text-blue-400">System User</div>
+                          )}
+                        </div>
                       </div>
                       <button
                         onClick={() => handleDeleteUser(user.id)}
+                        disabled={loading || SYSTEM_USERS.some(u => u.id === user.id)}
                         className={`bg-red-500/20 text-red-400 px-2 py-2 rounded-lg ${
                           SYSTEM_USERS.some(u => u.id === user.id) ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                        disabled={SYSTEM_USERS.some(u => u.id === user.id)}
+                        } disabled:opacity-50`}
                       >
                         <X size={14} />
                       </button>
@@ -792,7 +972,8 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                             <button
                               key={pkg.id}
                               onClick={() => assignPackageToDate(selectedDate, pkg)}
-                              className="w-full bg-white/10 text-white p-3 rounded-xl border border-white/20 hover:bg-white/20 transition-all text-left"
+                              disabled={loading}
+                              className="w-full bg-white/10 text-white p-3 rounded-xl border border-white/20 hover:bg-white/20 transition-all text-left disabled:opacity-50"
                             >
                               <div className="font-medium">{pkg.name}</div>
                               <div className="text-white/60 text-xs">{pkg.exercises.length} exercises</div>
@@ -867,12 +1048,12 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
 
                     <button
                       onClick={createManualWorkoutForDate}
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                      <Save size={16} />
-                      Save Workout
+                      {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Save size={16} />}
+                      {loading ? 'Saving...' : 'Save Workout'}
                     </button>
-                    {/* Back button to go back to package selection */}
                     <button
                       onClick={() => setIsCreatingManualWorkout(false)}
                       className="w-full mt-2 bg-white/10 text-white py-2 rounded-xl text-sm border border-white/20"
@@ -882,11 +1063,10 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                   </div>
                 </>
               )}
-              {/* This cancel button is for the whole modal */}
               <button
                 onClick={() => {
                   setShowDateModal(false);
-                  setIsCreatingManualWorkout(false); // Ensure this resets on modal close
+                  setIsCreatingManualWorkout(false);
                 }}
                 className="w-full mt-4 bg-white/10 text-white py-2 rounded-xl text-sm border border-white/20"
               >
@@ -914,11 +1094,12 @@ function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
       time: new Date().toLocaleTimeString(),
       workout: workoutData.name,
       duration: finalTime,
-      actualDuration: actualDuration,
-      totalExercises: workoutData.totalExercises,
-      completedExercises: workoutData.completedExercises,
-      completionRate: Math.round((workoutData.completedExercises / workoutData.totalExercises) * 100),
-      isCustom: workoutData.isCustom
+      actual_duration: actualDuration,
+      total_exercises: workoutData.totalExercises,
+      completed_exercises: workoutData.completedExercises,
+      completion_rate: Math.round((workoutData.completedExercises / workoutData.totalExercises) * 100),
+      is_custom: workoutData.isCustom,
+      created_at: new Date().toISOString()
     };
     
     onSaveLog(logEntry);
@@ -1013,6 +1194,8 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
   const [currentWorkout, setCurrentWorkout] = useState(null);
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
   const [showCompletion, setShowCompletion] = useState(false);
+
+  const { loading, error, handleOperation } = useDatabase();
 
   const getCurrentDay = () => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -1131,17 +1314,22 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSaveWorkoutLog = (logEntry) => {
-    setWorkoutLogs(prev => [logEntry, ...prev]);
-    
-    const today = new Date().toLocaleDateString();
-    const todaysLogs = workoutLogs.filter(log => log.date === today && log.workout === logEntry.workout);
-    const isNewRecord = todaysLogs.length === 0 || logEntry.duration < Math.min(...todaysLogs.map(log => log.duration));
-    
-    if (isNewRecord) {
-      showNotification(`🏆 New record! ${logEntry.user} leads with ${logEntry.duration} min!`, 'success');
-    } else {
-      showNotification('Workout logged successfully! 📊', 'success');
+  const handleSaveWorkoutLog = async (logEntry) => {
+    try {
+      await handleOperation(() => supabase.createWorkoutLog(logEntry));
+      setWorkoutLogs(prev => [logEntry, ...prev]);
+      
+      const today = new Date().toLocaleDateString();
+      const todaysLogs = workoutLogs.filter(log => log.date === today && log.workout === logEntry.workout);
+      const isNewRecord = todaysLogs.length === 0 || logEntry.duration < Math.min(...todaysLogs.map(log => log.duration));
+      
+      if (isNewRecord) {
+        showNotification(`🏆 New record! ${logEntry.user} leads with ${logEntry.duration} min!`, 'success');
+      } else {
+        showNotification('Workout logged successfully! 📊', 'success');
+      }
+    } catch (err) {
+      showNotification('Failed to save workout log', 'error');
     }
   };
 
@@ -1344,90 +1532,62 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
 }
 
 export default function App() {
-  // Helper function to get initial state from localStorage
-  const getInitialState = (key, defaultValue) => {
-    if (typeof window !== 'undefined') { // Check if window is defined (client-side)
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCoachLoggedIn, setIsCoachLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [customWorkouts, setCustomWorkouts] = useState({});
+  const [workoutLogs, setWorkoutLogs] = useState([]);
+  const [workoutPackages, setWorkoutPackages] = useState([]);
+  const [users, setUsers] = useState(SYSTEM_USERS);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  const { loading, error, handleOperation } = useDatabase();
+
+  // Load data from Supabase on app start
+  useEffect(() => {
+    const loadData = async () => {
       try {
-        const storedValue = localStorage.getItem(key);
-        if (storedValue) {
-          return JSON.parse(storedValue);
-        }
-      } catch (error) {
-        console.error(`Error reading ${key} from localStorage:`, error);
+        // Load users
+        const usersData = await handleOperation(() => supabase.getUsers());
+        const mergedUsers = [...SYSTEM_USERS];
+        usersData.forEach(user => {
+          if (!SYSTEM_USERS.some(sysUser => sysUser.id === user.id)) {
+            mergedUsers.push(user);
+          }
+        });
+        setUsers(mergedUsers);
+
+        // Load custom workouts
+        const customWorkoutsData = await handleOperation(() => supabase.getCustomWorkouts());
+        const workoutsMap = {};
+        customWorkoutsData.forEach(workout => {
+          workoutsMap[workout.date] = {
+            name: workout.name,
+            exercises: workout.exercises,
+            focus: workout.focus,
+            duration: workout.duration,
+            created_by: workout.created_by
+          };
+        });
+        setCustomWorkouts(workoutsMap);
+
+        // Load workout packages
+        const packagesData = await handleOperation(() => supabase.getWorkoutPackages());
+        setWorkoutPackages(packagesData);
+
+        // Load workout logs
+        const logsData = await handleOperation(() => supabase.getWorkoutLogs());
+        setWorkoutLogs(logsData);
+
+        setDataLoaded(true);
+      } catch (err) {
+        console.error('Failed to load data:', err);
+        setDataLoaded(true); // Still set as loaded to allow app to function
       }
-    }
-    return defaultValue;
-  };
+    };
 
-  // Initialize all states using getInitialState
-  const [isLoggedIn, setIsLoggedIn] = useState(() => getInitialState('isLoggedIn', false));
-  const [isCoachLoggedIn, setIsCoachLoggedIn] = useState(() => getInitialState('isCoachLoggedIn', false));
-  const [currentUser, setCurrentUser] = useState(() => getInitialState('currentUser', null));
-  // These states are now client-side only using localStorage
-  const [customWorkouts, setCustomWorkouts] = useState(() => getInitialState('customWorkouts', {}));
-  const [workoutLogs, setWorkoutLogs] = useState(() => getInitialState('workoutLogs', []));
-  const [workoutPackages, setWorkoutPackages] = useState(() => getInitialState('workoutPackages', []));
-  // Users will now be directly SYSTEM_USERS initially, mutable via Coach Dashboard
-  const [users, setUsers] = useState(() => getInitialState('users', SYSTEM_USERS)); 
-
-  // Use useEffect to save state to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('isLoggedIn', JSON.stringify(isLoggedIn));
-    }
-  }, [isLoggedIn]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('isCoachLoggedIn', JSON.stringify(isCoachLoggedIn));
-    }
-  }, [isCoachLoggedIn]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('customWorkouts', JSON.stringify(customWorkouts));
-    }
-  }, [customWorkouts]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('workoutLogs', JSON.stringify(workoutLogs));
-    }
-  }, [workoutLogs]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('workoutPackages', JSON.stringify(workoutPackages));
-    }
-  }, [workoutPackages]);
-
-  useEffect(() => {
-    // Merge SYSTEM_USERS with any additional users stored in localStorage
-    const initialUsers = getInitialState('users', []);
-    const mergedUsers = [...SYSTEM_USERS];
-    initialUsers.forEach(user => {
-      // Only add if it's not already a system user and not a duplicate by ID
-      if (!SYSTEM_USERS.some(sysUser => sysUser.id === user.id) && !mergedUsers.some(mUser => mUser.id === user.id)) {
-        mergedUsers.push(user);
-      }
-    });
-    // Set users only if there's a difference to prevent infinite loops from useEffect
-    // This deep comparison handles array of objects
-    if (JSON.stringify(users) !== JSON.stringify(mergedUsers)) {
-      setUsers(mergedUsers);
-    }
-    // Always save the current 'users' state to localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('users', JSON.stringify(users));
-    }
-  }, [users]); // Depend on 'users' state to trigger saving
-
+    loadData();
+  }, []);
 
   const handleLogin = () => setIsLoggedIn(true);
   const handleCoachLogin = () => setIsCoachLoggedIn(true);
@@ -1435,19 +1595,24 @@ export default function App() {
     setIsLoggedIn(false); 
     setIsCoachLoggedIn(false); 
     setCurrentUser(null); 
-    // Clear ALL app-specific localStorage data on logout for a clean slate
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('isLoggedIn');
-      localStorage.removeItem('isCoachLoggedIn');
-      localStorage.removeItem('currentUser');
-      localStorage.removeItem('customWorkouts');
-      localStorage.removeItem('workoutLogs');
-      localStorage.removeItem('workoutPackages');
-      localStorage.removeItem('users');
-    }
   };
   const handleUserSelect = (user) => setCurrentUser(user);
   const handleUserChange = () => setCurrentUser(null);
+
+  // Show loading screen while data is being fetched
+  if (!dataLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Loading FitnessPro</h2>
+          <p className="text-white/70">Connecting to database...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -1464,7 +1629,7 @@ export default function App() {
           setUsers={setUsers} 
         />
       ) : !currentUser ? (
-        <UserSelection onUserSelect={handleUserSelect} /> 
+        <UserSelection onUserSelect={handleUserSelect} users={users} /> 
       ) : (
         <WorkoutApp 
           currentUser={currentUser} 
