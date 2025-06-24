@@ -253,7 +253,7 @@ function UserSelection({ onUserSelect }) {
   );
 }
 
-function CalendarView({ customWorkouts, onDateSelect, onSwitchToCreate }) {
+function CalendarView({ customWorkouts, onDateSelect }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   
   const today = new Date();
@@ -306,7 +306,6 @@ function CalendarView({ customWorkouts, onDateSelect, onSwitchToCreate }) {
     if (!isPastDate(day)) {
       const dateString = getDateString(day);
       onDateSelect(dateString);
-      onSwitchToCreate(); // Switch to create tab
     }
   };
   
@@ -398,12 +397,14 @@ function CalendarView({ customWorkouts, onDateSelect, onSwitchToCreate }) {
   );
 }
 
-function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts }) {
+function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPackages, setWorkoutPackages }) {
   const [selectedDate, setSelectedDate] = useState('');
   const [workoutName, setWorkoutName] = useState('');
   const [exercises, setExercises] = useState(['']);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
-  const [activeTab, setActiveTab] = useState('create');
+  const [activeTab, setActiveTab] = useState('packages');
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState(null);
 
   const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
@@ -421,25 +422,48 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts }) {
     return days;
   };
 
-  const saveWorkout = () => {
-    if (!selectedDate || !workoutName || exercises.filter(e => e.trim()).length === 0) {
+  const saveWorkoutPackage = () => {
+    if (!workoutName || exercises.filter(e => e.trim()).length === 0) {
       showNotification('Please fill all fields', 'error');
       return;
     }
 
-    const workout = {
+    const workoutPackage = {
+      id: Date.now(),
       name: workoutName,
       exercises: exercises.filter(e => e.trim()),
       focus: 'Custom',
       duration: '30-45 min',
-      createdBy: 'Coach'
+      createdBy: 'Coach',
+      createdAt: new Date().toISOString()
     };
 
-    setCustomWorkouts(prev => ({ ...prev, [selectedDate]: workout }));
-    showNotification(`Workout saved for ${selectedDate}! 💪`, 'success');
-    setSelectedDate(''); 
+    setWorkoutPackages(prev => [...prev, workoutPackage]);
+    showNotification(`Workout package "${workoutName}" created! 💪`, 'success');
     setWorkoutName(''); 
     setExercises(['']);
+  };
+
+  const deleteWorkoutPackage = (packageId) => {
+    setWorkoutPackages(prev => prev.filter(pkg => pkg.id !== packageId));
+    showNotification('Workout package deleted', 'success');
+  };
+
+  const assignPackageToDate = (date, packageData) => {
+    setCustomWorkouts(prev => ({ ...prev, [date]: packageData }));
+    showNotification(`Workout assigned to ${new Date(date).toLocaleDateString()}! 📅`, 'success');
+    setShowDateModal(false);
+    setSelectedPackage(null);
+  };
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    setShowDateModal(true);
+  };
+
+  const createManualWorkout = () => {
+    setShowDateModal(false);
+    setActiveTab('manual');
   };
 
   return (
@@ -465,7 +489,11 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts }) {
         )}
 
         <div className="flex bg-black/20 mx-4 my-4 rounded-xl p-1">
-          {[{ id: 'create', label: 'Create', icon: BookOpen }, { id: 'calendar', label: 'Calendar', icon: CalendarDays }].map(tab => {
+          {[
+            { id: 'packages', label: 'Workout Packages', icon: BookOpen }, 
+            { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+            { id: 'manual', label: 'Manual Create', icon: Settings }
+          ].map(tab => {
             const Icon = tab.icon;
             return (
               <button
@@ -476,20 +504,134 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts }) {
                 }`}
               >
                 <Icon size={16} />
-                <span className="font-medium">{tab.label}</span>
+                <span className="font-medium text-xs">{tab.label}</span>
               </button>
             );
           })}
         </div>
 
         <div className="px-4 pb-20">
-          {activeTab === 'create' && (
+          {activeTab === 'packages' && (
             <div className="space-y-6">
               <div className="text-center py-6">
                 <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <BookOpen size={24} className="text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-white mb-2">Create Workout</h1>
+                <h1 className="text-2xl font-bold text-white mb-2">Create Workout Package</h1>
+                <p className="text-white/70">Define reusable workout templates</p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    value={workoutName}
+                    onChange={(e) => setWorkoutName(e.target.value)}
+                    placeholder="Package name (e.g., Upper Body Strength)"
+                    className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-purple-400"
+                  />
+
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-white/80 text-sm">Exercises</span>
+                      <button
+                        onClick={() => setExercises([...exercises, ''])}
+                        className="bg-purple-500 text-white px-2 py-1 rounded-lg text-xs flex items-center gap-1"
+                      >
+                        <Plus size={12} />
+                        Add
+                      </button>
+                    </div>
+                    {exercises.map((exercise, index) => (
+                      <div key={index} className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={exercise}
+                          onChange={(e) => {
+                            const newExercises = [...exercises];
+                            newExercises[index] = e.target.value;
+                            setExercises(newExercises);
+                          }}
+                          placeholder="e.g., Bench Press 4x8 or Plank 30 seconds"
+                          className="flex-1 bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-lg py-2 px-3 focus:outline-none focus:border-purple-400"
+                        />
+                        {exercises.length > 1 && (
+                          <button
+                            onClick={() => setExercises(exercises.filter((_, i) => i !== index))}
+                            className="bg-red-500/20 text-red-400 px-2 py-2 rounded-lg"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={saveWorkoutPackage}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Save size={16} />
+                    Save Package
+                  </button>
+                </div>
+              </div>
+
+              {/* Existing Packages */}
+              {workoutPackages.length > 0 && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-bold text-white">Saved Packages</h2>
+                  {workoutPackages.map((pkg) => (
+                    <div key={pkg.id} className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-lg font-bold text-white">{pkg.name}</h3>
+                          <p className="text-white/60 text-sm">{pkg.exercises.length} exercises</p>
+                        </div>
+                        <button
+                          onClick={() => deleteWorkoutPackage(pkg.id)}
+                          className="bg-red-500/20 text-red-400 px-2 py-2 rounded-lg"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="bg-black/20 rounded-lg p-3">
+                        {pkg.exercises.map((exercise, index) => (
+                          <div key={index} className="text-white/80 text-sm">• {exercise}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'calendar' && (
+            <div className="space-y-4">
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CalendarDays size={24} className="text-white" />
+                </div>
+                <h1 className="text-2xl font-bold text-white mb-2">Calendar View</h1>
+                <p className="text-white/70">Click dates to assign workouts</p>
+              </div>
+
+              <CalendarView 
+                customWorkouts={customWorkouts} 
+                onDateSelect={handleDateSelect}
+              />
+            </div>
+          )}
+
+          {activeTab === 'manual' && (
+            <div className="space-y-6">
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Settings size={24} className="text-white" />
+                </div>
+                <h1 className="text-2xl font-bold text-white mb-2">Manual Create</h1>
+                <p className="text-white/70">Create workout for specific date</p>
               </div>
 
               <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
@@ -552,34 +694,91 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts }) {
                   </div>
 
                   <button
-                    onClick={saveWorkout}
+                    onClick={() => {
+                      if (!selectedDate || !workoutName || exercises.filter(e => e.trim()).length === 0) {
+                        showNotification('Please fill all fields', 'error');
+                        return;
+                      }
+                      const workout = {
+                        name: workoutName,
+                        exercises: exercises.filter(e => e.trim()),
+                        focus: 'Custom',
+                        duration: '30-45 min',
+                        createdBy: 'Coach'
+                      };
+                      setCustomWorkouts(prev => ({ ...prev, [selectedDate]: workout }));
+                      showNotification(`Workout created for ${selectedDate}! 💪`, 'success');
+                      setSelectedDate(''); setWorkoutName(''); setExercises(['']);
+                    }}
                     className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                   >
                     <Save size={16} />
-                    Save Workout
+                    Create Workout
                   </button>
                 </div>
               </div>
             </div>
           )}
+        </div>
 
-          {activeTab === 'calendar' && (
-            <div className="space-y-4">
-              <div className="text-center py-6">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+        {/* Date Selection Modal */}
+        {showDateModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center px-4 z-50">
+            <div className="bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20 max-w-md w-full">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CalendarDays size={24} className="text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-white mb-2">Calendar View</h1>
+                <h2 className="text-xl font-bold text-white mb-2">Assign Workout</h2>
+                <p className="text-white/70">
+                  {new Date(selectedDate).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </p>
               </div>
 
-              <CalendarView 
-                customWorkouts={customWorkouts} 
-                onDateSelect={setSelectedDate} 
-                onSwitchToCreate={() => setActiveTab('create')}
-              />
+              <div className="space-y-4">
+                <button
+                  onClick={createManualWorkout}
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                >
+                  <Settings size={16} />
+                  Create Manual Workout
+                </button>
+
+                {workoutPackages.length > 0 && (
+                  <>
+                    <div className="text-center text-white/60 text-sm">OR</div>
+                    
+                    <div className="space-y-2">
+                      <p className="text-white/80 text-sm font-medium">Choose from packages:</p>
+                      {workoutPackages.map((pkg) => (
+                        <button
+                          key={pkg.id}
+                          onClick={() => assignPackageToDate(selectedDate, pkg)}
+                          className="w-full bg-white/10 text-white p-3 rounded-xl border border-white/20 hover:bg-white/20 transition-all text-left"
+                        >
+                          <div className="font-medium">{pkg.name}</div>
+                          <div className="text-white/60 text-xs">{pkg.exercises.length} exercises</div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowDateModal(false)}
+                className="w-full mt-4 bg-white/10 text-white py-2 rounded-xl text-sm border border-white/20"
+              >
+                Cancel
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -1030,6 +1229,45 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCoachLoggedIn, setIsCoachLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [customWorkouts, setCustomWorkouts] = useState({});
+  const [workoutLogs, setWorkoutLogs] = useState([]);
+  const [workoutPackages, setWorkoutPackages] = useState([]);
+
+  const handleLogin = () => setIsLoggedIn(true);
+  const handleCoachLogin = () => setIsCoachLoggedIn(true);
+  const handleLogout = () => { setIsLoggedIn(false); setIsCoachLoggedIn(false); setCurrentUser(null); };
+  const handleUserSelect = (user) => setCurrentUser(user);
+  const handleUserChange = () => setCurrentUser(null);
+
+  return (
+    <>
+      {!isLoggedIn && !isCoachLoggedIn ? (
+        <LoginPage onLogin={handleLogin} onCoachLogin={handleCoachLogin} />
+      ) : isCoachLoggedIn ? (
+        <CoachDashboard 
+          onLogout={handleLogout} 
+          customWorkouts={customWorkouts} 
+          setCustomWorkouts={setCustomWorkouts}
+          workoutPackages={workoutPackages}
+          setWorkoutPackages={setWorkoutPackages}
+        />
+      ) : !currentUser ? (
+        <UserSelection onUserSelect={handleUserSelect} />
+      ) : (
+        <WorkoutApp 
+          currentUser={currentUser} 
+          onLogout={handleLogout} 
+          onUserChange={handleUserChange} 
+          customWorkouts={customWorkouts}
+          workoutLogs={workoutLogs}
+          setWorkoutLogs={setWorkoutLogs}
+        />
+      )}
+    </>
+  );
+} = useState(false);
   const [isCoachLoggedIn, setIsCoachLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [customWorkouts, setCustomWorkouts] = useState({});
