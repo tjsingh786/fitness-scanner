@@ -7,9 +7,6 @@ import Head from 'next/head';
 const SUPABASE_URL = 'https://rfjzrurkbgogjowskiuz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmanpydXJrYmdvZ2pvd3NraXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTM0NzgsImV4cCI6MjA2NjMyOTQ3OH0.fmtcoR61pFIMR5R3w07O-CypoQ0Y0_7yQE4GWftdEG4';
 
-// Example of what it should look like:
-// const SUPABASE_URL = 'https://abcdefghijklmnop.supabase.co';
-// const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprbG1ub3AiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYzNjU4NDQ5MCwiZXhwIjoxOTUyMTYwNDkwfQ.xyz123';
 
 // Simple Supabase client (you can also use the official supabase-js client)
 class SupabaseClient {
@@ -269,11 +266,11 @@ function LoginPage({ onLogin, onCoachLogin }) {
             <div className="text-center mb-8">
               <div className="w-20 h-20 mx-auto mb-6 relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-75"></div>
-                <div className="relative w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl border border-white/20 overflow-hidden p-2">
+                <div className="relative w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl border border-white/20 overflow-hidden">
                   <img 
                     src="/img.png"
                     alt="Dire Crossfit Logo" 
-                    className="w-full h-full object-cover filter brightness-0 invert rounded-xl"
+                    className="w-full h-full object-cover filter brightness-0 invert"
                   />
                 </div>
               </div>
@@ -523,8 +520,11 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   };
   
   const getDateString = (day) => {
-    const date = new Date(year, month, day);
-    return date.toISOString().split('T')[0];
+    // Use local date formatting to avoid timezone issues
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    return `${year}-${month}-${dayStr}`;
   };
   
   const hasCustomWorkout = (day) => {
