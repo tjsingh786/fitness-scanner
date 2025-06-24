@@ -80,7 +80,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
 
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8">
           <div className="w-full max-w-md">
-            <div className="text-center mb-2">
+            <div className="text-center mb-0">
               {/* INCREASED SIZE HERE FROM w-32 h-32 to w-48 h-48 */}
               <div className="w-72 h-72 mx-auto mb-6 flex items-center justify-center">
                 <img 
