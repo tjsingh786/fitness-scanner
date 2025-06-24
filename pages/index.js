@@ -74,6 +74,7 @@ class SupabaseClient {
             exercises: workout.exercises,
             focus: workout.focus,
             duration: workout.duration,
+            notes: workout.notes, // Include notes in update
             created_by: workout.created_by
           })
         });
@@ -1298,59 +1299,6 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                     >
                       <ChevronLeft size={14} className="inline-block mr-2" /> Back to Packages
                     </button>
-                  </div>-white/50 border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-purple-400"
-                    />
-
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-white/80 text-sm">Exercises</span>
-                        <button
-                          onClick={() => setExercises([...exercises, ''])}
-                          className="bg-purple-500 text-white px-2 py-1 rounded-lg text-xs flex items-center gap-1"
-                        >
-                          <Plus size={12} />
-                          Add
-                        </button>
-                      </div>
-                      {exercises.map((exercise, index) => (
-                        <div key={index} className="flex gap-2 mb-2">
-                          <input
-                            type="text"
-                            value={exercise}
-                            onChange={(e) => {
-                              const newExercises = [...exercises];
-                              newExercises[index] = e.target.value;
-                              setExercises(newExercises);
-                            }}
-                            placeholder="e.g., Push-ups 3x10"
-                            className="flex-1 bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-lg py-2 px-3 focus:outline-none focus:border-purple-400"
-                          />
-                          {exercises.length > 1 && (
-                            <button
-                              onClick={() => setExercises(exercises.filter((_, i) => i !== index))}
-                              className="bg-red-500/20 text-red-400 px-2 py-2 rounded-lg"
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      onClick={createManualWorkoutForDate}
-                      disabled={loading}
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Save size={16} />}
-                      {loading ? 'Saving...' : 'Save Workout'}
-                    </button>
-                    <button
-                      onClick={() => setIsCreatingManualWorkout(false)}
-                      className="w-full mt-2 bg-white/10 text-white py-2 rounded-xl text-sm border border-white/20"
-                    >
-                      <ChevronLeft size={14} className="inline-block mr-2" /> Back to Packages
-                    </button>
                   </div>
                 </>
               )}
@@ -1625,6 +1573,7 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
   const resetExercise = (exerciseId) => {
     setWorkouts(prev => prev.map(w => w.id === exerciseId ? { ...w, completed: 0, isActive: false } : w));
   };
+    const getProgressPercentage = () => { // Moved this function inside WorkoutApp
     if (workouts.length === 0) return 0;
     const totalSets = workouts.reduce((acc, w) => acc + w.sets, 0);
     const completedSets = workouts.reduce((acc, w) => acc + w.completed, 0);
