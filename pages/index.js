@@ -62,7 +62,7 @@ class SupabaseClient {
       method: 'POST',
       body: JSON.stringify(workout),
       headers: {
-        'Prefer': 'resolution=merge-duplicates'
+        'Prefer': 'resolution=merge-duplicates,return=representation'
       }
     });
   }
@@ -91,9 +91,23 @@ class SupabaseClient {
   }
 
   async createWorkoutLog(log) {
+    // Transform the log entry to match database schema
+    const dbLog = {
+      user_name: log.user,
+      date: log.date,
+      time: log.time,
+      workout: log.workout,
+      duration: log.duration,
+      actual_duration: log.actual_duration || log.actualDuration,
+      total_exercises: log.total_exercises || log.totalExercises,
+      completed_exercises: log.completed_exercises || log.completedExercises,
+      completion_rate: log.completion_rate || log.completionRate,
+      is_custom: log.is_custom || log.isCustom || false
+    };
+    
     return this.request('/workout_logs', {
       method: 'POST',
-      body: JSON.stringify(log)
+      body: JSON.stringify(dbLog)
     });
   }
 }
@@ -589,13 +603,17 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
         created_by: 'Coach'
       };
 
-      await handleOperation(() => supabase.upsertCustomWorkout(workoutData));
+      console.log('Assigning workout to date:', workoutData); // Debug log
+      const result = await handleOperation(() => supabase.upsertCustomWorkout(workoutData));
+      console.log('Upsert result:', result); // Debug log
+      
       setCustomWorkouts(prev => ({ ...prev, [date]: packageData }));
       showNotification(`Workout assigned to ${new Date(date).toLocaleDateString()}! 📅`, 'success');
       setShowDateModal(false);
       setIsCreatingManualWorkout(false); 
     } catch (err) {
-      showNotification('Failed to assign workout', 'error');
+      console.error('Failed to assign workout:', err); // Debug log
+      showNotification('Failed to assign workout: ' + err.message, 'error');
     }
   };
 
@@ -623,7 +641,10 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
         created_by: 'Coach'
       };
 
-      await handleOperation(() => supabase.upsertCustomWorkout(workout));
+      console.log('Creating manual workout:', workout); // Debug log
+      const result = await handleOperation(() => supabase.upsertCustomWorkout(workout));
+      console.log('Create manual workout result:', result); // Debug log
+      
       setCustomWorkouts(prev => ({ ...prev, [selectedDate]: workout }));
       showNotification(`Manual workout created for ${new Date(selectedDate).toLocaleDateString()}! 💪`, 'success');
       setShowDateModal(false);
@@ -632,7 +653,8 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
       setWorkoutName('');
       setExercises(['']);
     } catch (err) {
-      showNotification('Failed to create workout', 'error');
+      console.error('Failed to create manual workout:', err); // Debug log
+      showNotification('Failed to create workout: ' + err.message, 'error');
     }
   };
 
@@ -1316,7 +1338,10 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
 
   const handleSaveWorkoutLog = async (logEntry) => {
     try {
-      await handleOperation(() => supabase.createWorkoutLog(logEntry));
+      console.log('Saving workout log:', logEntry); // Debug log
+      const result = await handleOperation(() => supabase.createWorkoutLog(logEntry));
+      console.log('Save log result:', result); // Debug log
+      
       setWorkoutLogs(prev => [logEntry, ...prev]);
       
       const today = new Date().toLocaleDateString();
@@ -1329,7 +1354,8 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
         showNotification('Workout logged successfully! 📊', 'success');
       }
     } catch (err) {
-      showNotification('Failed to save workout log', 'error');
+      console.error('Failed to save workout log:', err); // Debug log
+      showNotification('Failed to save workout log: ' + err.message, 'error');
     }
   };
 
@@ -1577,7 +1603,21 @@ export default function App() {
 
         // Load workout logs
         const logsData = await handleOperation(() => supabase.getWorkoutLogs());
-        setWorkoutLogs(logsData);
+        // Transform database logs back to app format
+        const transformedLogs = logsData.map(log => ({
+          user: log.user_name,
+          date: log.date,
+          time: log.time,
+          workout: log.workout,
+          duration: log.duration,
+          actualDuration: log.actual_duration,
+          totalExercises: log.total_exercises,
+          completedExercises: log.completed_exercises,
+          completionRate: log.completion_rate,
+          isCustom: log.is_custom,
+          created_at: log.created_at
+        }));
+        setWorkoutLogs(transformedLogs);
 
         setDataLoaded(true);
       } catch (err) {
