@@ -1,8 +1,24 @@
 // pages/index.js
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Play, RotateCcw, CheckCircle, Edit3, Zap, Target, TrendingUp, Plus, Eye, EyeOff, Lock, User, Shield, Calendar, Dumbbell, Clock } from 'lucide-react';
+import { Camera, Play, RotateCcw, CheckCircle, Edit3, Zap, Target, TrendingUp, Plus, Eye, EyeOff, Lock, User, Shield, Calendar, Dumbbell, Clock, Trophy, Users, ChevronRight, Timer, Star } from 'lucide-react';
 import Head from 'next/head';
 import Tesseract from 'tesseract.js';
+
+// Predefined users
+const SYSTEM_USERS = [
+  {
+    id: 'akshay',
+    name: 'Akshay',
+    avatar: '💪',
+    color: 'from-blue-500 to-cyan-500'
+  },
+  {
+    id: 'ravish',
+    name: 'Ravish',
+    avatar: '🔥',
+    color: 'from-orange-500 to-red-500'
+  }
+];
 
 // Predefined workouts for each day
 const WEEKLY_WORKOUTS = {
@@ -264,12 +280,182 @@ function LoginPage({ onLogin }) {
   );
 }
 
+// User Selection Component
+function UserSelection({ onUserSelect }) {
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+  const showNotification = (message, type = 'info') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+  };
+
+  const handleUserSelect = (user) => {
+    showNotification(`Welcome ${user.name}! 👋`, 'success');
+    setTimeout(() => {
+      onUserSelect(user);
+    }, 1000);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="bg-black/20 backdrop-blur-sm px-6 py-3 flex justify-between items-center text-white text-sm">
+        <span className="font-medium">
+          {new Date().toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          })}
+        </span>
+        <span className="font-bold text-lg">FitnessPro</span>
+        <div className="flex gap-1">
+          <div className="w-4 h-2 bg-white rounded-sm"></div>
+          <div className="w-6 h-2 bg-white/50 rounded-sm"></div>
+        </div>
+      </div>
+
+      {notification.show && (
+        <div className={`fixed top-20 left-4 right-4 z-50 p-4 rounded-xl backdrop-blur-md border transition-all duration-300 ${
+          notification.type === 'success' ? 'bg-green-500/20 border-green-400/30 text-green-100' :
+          notification.type === 'error' ? 'bg-red-500/20 border-red-400/30 text-red-100' :
+          'bg-blue-500/20 border-blue-400/30 text-blue-100'
+        }`}>
+          <p className="font-medium text-center">{notification.message}</p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users size={32} className="text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">Select Your Profile</h1>
+            <p className="text-white/70">Choose your account to continue</p>
+          </div>
+
+          <div className="space-y-4">
+            {SYSTEM_USERS.map((user) => (
+              <button
+                key={user.id}
+                onClick={() => handleUserSelect(user)}
+                className="w-full bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:border-purple-400/50 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-16 h-16 bg-gradient-to-r ${user.color} rounded-full flex items-center justify-center text-2xl shadow-lg`}>
+                    {user.avatar}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h3 className="text-xl font-bold text-white group-hover:text-purple-300 transition-colors">
+                      {user.name}
+                    </h3>
+                    <p className="text-white/60 text-sm">Tap to continue</p>
+                  </div>
+                  <ChevronRight size={24} className="text-white/40 group-hover:text-purple-400 transition-colors" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Workout Completion Component
+function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
+  const formatDuration = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    }
+    return `${minutes}m ${secs}s`;
+  };
+
+  const handleSaveLog = () => {
+    const logEntry = {
+      user: currentUser.name,
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+      workout: workoutData.name,
+      duration: formatDuration(workoutData.duration),
+      totalExercises: workoutData.totalExercises,
+      completedExercises: workoutData.completedExercises,
+      completionRate: Math.round((workoutData.completedExercises / workoutData.totalExercises) * 100)
+    };
+    
+    onSaveLog(logEntry);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center px-4 z-50">
+      <div className="bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20 max-w-md w-full">
+        <div className="text-center mb-6">
+          <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Trophy size={32} className="text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Workout Complete! 🎉</h2>
+          <p className="text-white/70">Great job, {currentUser.name}!</p>
+        </div>
+
+        <div className="space-y-4 mb-6">
+          <div className="bg-black/20 rounded-2xl p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-white/70">Duration</span>
+              <span className="text-white font-bold">{formatDuration(workoutData.duration)}</span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-white/70">Exercises Completed</span>
+              <span className="text-white font-bold">{workoutData.completedExercises}/{workoutData.totalExercises}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-white/70">Completion Rate</span>
+              <span className="text-green-400 font-bold">
+                {Math.round((workoutData.completedExercises / workoutData.totalExercises) * 100)}%
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-black/20 rounded-2xl p-4">
+            <div className="text-center">
+              <div className="text-3xl mb-2">⭐</div>
+              <p className="text-white font-medium">Workout: {workoutData.name}</p>
+              <p className="text-white/60 text-sm">{new Date().toLocaleDateString()} • {new Date().toLocaleTimeString()}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-white/10 text-white py-3 rounded-xl font-semibold border border-white/20 hover:bg-white/20 transition-all"
+          >
+            Skip Log
+          </button>
+          <button
+            onClick={handleSaveLog}
+            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-green-500/25 hover:-translate-y-0.5 transition-all"
+          >
+            Save Log
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Main App Component
-function WorkoutApp({ onLogout }) {
+function WorkoutApp({ currentUser, onLogout, onUserChange }) {
   const [workouts, setWorkouts] = useState([]);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [currentWorkout, setCurrentWorkout] = useState(null);
   const [activeTimers, setActiveTimers] = useState({});
+  const [workoutStartTime, setWorkoutStartTime] = useState(null);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [workoutLogs, setWorkoutLogs] = useState([]);
 
   // Get current day
   const getCurrentDay = () => {
@@ -344,6 +530,7 @@ function WorkoutApp({ onLogout }) {
         estimatedTime: todaysWorkout.duration,
         focus: todaysWorkout.focus
       });
+      setWorkoutStartTime(Date.now());
       showNotification(`${todaysWorkout.name} loaded! 💪`, 'success');
     }
   };
@@ -370,6 +557,26 @@ function WorkoutApp({ onLogout }) {
         showNotification('Set complete! Rest timer started.', 'success');
       } else {
         showNotification('Exercise complete! 🔥', 'success');
+        
+        // Check if all exercises are completed
+        const updatedWorkouts = workouts.map(w =>
+          w.id === exerciseId ? { ...w, completed: Math.min(w.completed + 1, w.sets) } : w
+        );
+        const allCompleted = updatedWorkouts.every(w => w.completed === w.sets);
+        
+        if (allCompleted) {
+          setTimeout(() => {
+            const workoutDuration = Math.floor((Date.now() - workoutStartTime) / 1000);
+            const completedExercises = updatedWorkouts.filter(w => w.completed === w.sets).length;
+            
+            setShowCompletion(true);
+            setCurrentWorkout(prev => ({
+              ...prev,
+              duration: workoutDuration,
+              completedExercises: completedExercises
+            }));
+          }, 1000);
+        }
       }
     }
   };
@@ -421,6 +628,11 @@ function WorkoutApp({ onLogout }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleSaveWorkoutLog = (logEntry) => {
+    setWorkoutLogs(prev => [logEntry, ...prev]);
+    showNotification('Workout logged successfully! 📊', 'success');
+  };
+
   // Auto-load today's workout on component mount
   useEffect(() => {
     loadTodaysWorkout();
@@ -446,12 +658,20 @@ function WorkoutApp({ onLogout }) {
             })}
           </span>
           <span className="font-bold text-lg">FitnessPro</span>
-          <button
-            onClick={onLogout}
-            className="text-red-400 hover:text-red-300 transition-colors text-xs px-2 py-1 rounded"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onUserChange}
+              className="text-blue-400 hover:text-blue-300 transition-colors text-xs"
+            >
+              Switch User
+            </button>
+            <button
+              onClick={onLogout}
+              className="text-red-400 hover:text-red-300 transition-colors text-xs"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* Notification */}
@@ -464,6 +684,27 @@ function WorkoutApp({ onLogout }) {
             <p className="font-medium text-center">{notification.message}</p>
           </div>
         )}
+
+        {/* User Info Bar */}
+        <div className="px-4 pt-4">
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 flex items-center gap-3">
+            <div className={`w-12 h-12 bg-gradient-to-r ${currentUser.color} rounded-full flex items-center justify-center text-lg`}>
+              {currentUser.avatar}
+            </div>
+            <div className="flex-1">
+              <h3 className="text-white font-semibold">Welcome back, {currentUser.name}!</h3>
+              <p className="text-white/60 text-sm">Ready to crush today's workout?</p>
+            </div>
+            {workoutStartTime && (
+              <div className="text-right">
+                <div className="text-white/60 text-xs">Session Time</div>
+                <div className="text-white font-mono text-sm">
+                  {formatTime(Math.floor((Date.now() - workoutStartTime) / 1000))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Welcome Section */}
         <div className="px-4 py-8">
@@ -608,7 +849,43 @@ function WorkoutApp({ onLogout }) {
               ))}
             </div>
           )}
+
+          {/* Workout Logs Section */}
+          {workoutLogs.length > 0 && (
+            <div className="mt-8">
+              <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
+                <div className="flex items-center gap-3 mb-4">
+                  <Trophy size={24} className="text-yellow-400" />
+                  <h3 className="text-xl font-bold text-white">Recent Workouts</h3>
+                </div>
+                <div className="space-y-3">
+                  {workoutLogs.slice(0, 3).map((log, index) => (
+                    <div key={index} className="bg-black/20 rounded-2xl p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-white font-medium">{log.workout}</span>
+                        <span className="text-green-400 font-bold">{log.completionRate}%</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-white/60">
+                        <span>{log.user} • {log.date}</span>
+                        <span>{log.duration}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Workout Completion Modal */}
+        {showCompletion && currentWorkout && (
+          <WorkoutCompletion
+            currentUser={currentUser}
+            workoutData={currentWorkout}
+            onClose={() => setShowCompletion(false)}
+            onSaveLog={handleSaveWorkoutLog}
+          />
+        )}
       </div>
     </>
   );
@@ -617,6 +894,7 @@ function WorkoutApp({ onLogout }) {
 // Main Export Component
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const handleLogin = () => {
     setIsLoggedIn(true);
@@ -624,14 +902,29 @@ export default function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
+    setCurrentUser(null);
+  };
+
+  const handleUserSelect = (user) => {
+    setCurrentUser(user);
+  };
+
+  const handleUserChange = () => {
+    setCurrentUser(null);
   };
 
   return (
     <>
       {!isLoggedIn ? (
         <LoginPage onLogin={handleLogin} />
+      ) : !currentUser ? (
+        <UserSelection onUserSelect={handleUserSelect} />
       ) : (
-        <WorkoutApp onLogout={handleLogout} />
+        <WorkoutApp 
+          currentUser={currentUser} 
+          onLogout={handleLogout}
+          onUserChange={handleUserChange}
+        />
       )}
     </>
   );
