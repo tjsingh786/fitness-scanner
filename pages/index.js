@@ -3,9 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Play, CheckCircle, RotateCcw, Eye, EyeOff, Lock, User, Shield, Calendar, Dumbbell, Clock, Trophy, Users, ChevronDown, Search, CalendarDays, BookOpen, Settings, Save, X, Target, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import Head from 'next/head';
 
-// Supabase configuration - REPLACE WITH YOUR ACTUAL VALUES
-const SUPABASE_URL = 'https://your-project-id.supabase.co'; // Replace with your Project URL
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Replace with your anon key
+// Supabase configuration
+const SUPABASE_URL = 'https://rfjzrurkbgogjowskiuz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmanpydXJrYmdvZ2pvd3NraXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTM0NzgsImV4cCI6MjA2NjMyOTQ3OH0.fmtcoR61pFIMR5R3w07O-CypoQ0Y0_7yQE4GWftdEG4';
 
 // Example of what it should look like:
 // const SUPABASE_URL = 'https://abcdefghijklmnop.supabase.co';
@@ -269,11 +269,11 @@ function LoginPage({ onLogin, onCoachLogin }) {
             <div className="text-center mb-8">
               <div className="w-20 h-20 mx-auto mb-6 relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-75"></div>
-                <div className="relative w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl border border-white/20 flex items-center justify-center overflow-hidden">
+                <div className="relative w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl border border-white/20 overflow-hidden p-2">
                   <img 
                     src="/img.png"
                     alt="Dire Crossfit Logo" 
-                    className="w-12 h-12 object-contain filter brightness-0 invert"
+                    className="w-full h-full object-cover filter brightness-0 invert rounded-xl"
                   />
                 </div>
               </div>
