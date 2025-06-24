@@ -78,18 +78,18 @@ function LoginPage({ onLogin, onCoachLogin }) {
           </div>
         )}
 
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8">
+        {/* Adjusted py-8 to py-4 to reduce overall vertical padding */}
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-4">
           <div className="w-full max-w-md">
-            <div className="text-center mb-0">
-              {/* Reverted logo container size to original w-32 h-32 */}
-              <div className="w-40 h-40 mx-auto mb-6 flex items-center justify-center">
+            <div className="text-center mb-8">
+              {/* Adjusted mb-6 to mb-2 for less space below logo */}
+              <div className="w-32 h-32 mx-auto mb-2 flex items-center justify-center">
                 <img 
                   src="/img.png"
                   alt="Dire Crossfit Logo" 
                   className="w-full h-full object-contain"
                 />
               </div>
-              {/* Reverted text elements */}
               <h1 className="text-3xl font-bold text-white mb-2">Dire Crossfit</h1>
               <p className="text-white/70">Secure access portal</p>
             </div>
