@@ -3,10 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Play, CheckCircle, RotateCcw, Eye, EyeOff, Lock, User, Shield, Calendar, Dumbbell, Clock, Trophy, Users, ChevronDown, Search, CalendarDays, BookOpen, Settings, Save, X, Target, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import Head from 'next/head';
 
-// Supabase configuration
-const SUPABASE_URL = 'https://rfjzrurkbgogjowskiuz.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmanpydXJrYmdvZ2pvd3NraXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTM0NzgsImV4cCI6MjA2NjMyOTQ3OH0.fmtcoR61pFIMR5R3w07O-CypoQ0Y0_7yQE4GWftdEG4';
-
+// Supabase configuration - REPLACE WITH YOUR ACTUAL VALUES
+const SUPABASE_URL = 'https://your-project-id.supabase.co'; // Replace with your Project URL
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Replace with your anon key
 
 // Example of what it should look like:
 // const SUPABASE_URL = 'https://abcdefghijklmnop.supabase.co';
@@ -243,7 +242,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
         </div>
 
         {/* Top Status Bar */}
-        <div className="relative z-10 bg-black/20 backdrop-blur-sm px-6 py-3 flex justify-between items-center text-white text-sm">
+        <div className="relative z-10 bg-black/20 px-6 py-3 flex justify-between items-center text-white text-sm">
           <span>{new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
           <span className="font-bold text-lg">Dire Crossfit</span>
           <div className="flex gap-1">
@@ -254,7 +253,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
 
         {/* Notification */}
         {notification.show && (
-          <div className={`fixed top-20 left-4 right-4 z-50 p-4 rounded-2xl backdrop-blur-md border transition-all duration-300 ${
+          <div className={`fixed top-20 left-4 right-4 z-50 p-4 rounded-2xl border transition-all duration-300 ${
             notification.type === 'success' ? 'bg-green-500/20 border-green-400/30 text-green-100' :
             notification.type === 'error' ? 'bg-red-500/20 border-red-400/30 text-red-100' :
             'bg-blue-500/20 border-blue-400/30 text-blue-100'
@@ -270,8 +269,12 @@ function LoginPage({ onLogin, onCoachLogin }) {
             <div className="text-center mb-8">
               <div className="w-20 h-20 mx-auto mb-6 relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-75"></div>
-                <div className="relative w-full h-full bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center">
-                  <span className="text-3xl">💪</span>
+                <div className="relative w-full h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl border border-white/20 flex items-center justify-center overflow-hidden">
+                  <img 
+                    src="/img.png"
+                    alt="Dire Crossfit Logo" 
+                    className="w-12 h-12 object-contain filter brightness-0 invert"
+                  />
                 </div>
               </div>
               <h1 className="text-4xl font-bold text-white mb-3 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
@@ -280,16 +283,16 @@ function LoginPage({ onLogin, onCoachLogin }) {
               <p className="text-white/70 text-lg">Secure access portal</p>
             </div>
 
-            {/* Glass Login Card */}
+            {/* Login Card */}
             <div className="relative">
               {/* Card Glow Effect */}
               <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-3xl blur opacity-25"></div>
               
               {/* Main Card */}
-              <div className="relative bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+              <div className="relative bg-slate-800/80 rounded-3xl p-8 border border-white/10 shadow-2xl">
                 {/* Sign In Header */}
                 <div className="flex items-center gap-3 mb-8">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
                     <Shield size={16} className="text-white" />
                   </div>
                   <h2 className="text-2xl font-bold text-white">Sign In</h2>
@@ -307,7 +310,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         placeholder="Username"
-                        className="w-full bg-white/5 backdrop-blur-md text-white placeholder-white/50 border border-white/20 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-white/40 focus:bg-white/10 transition-all duration-300"
+                        className="w-full bg-slate-700/50 text-white placeholder-white/50 border border-white/20 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-white/40 focus:bg-slate-700/70 transition-all duration-300"
                         disabled={isLoading}
                       />
                     </div>
@@ -323,7 +326,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Password"
-                        className="w-full bg-white/5 backdrop-blur-md text-white placeholder-white/50 border border-white/20 rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-white/40 focus:bg-white/10 transition-all duration-300"
+                        className="w-full bg-slate-700/50 text-white placeholder-white/50 border border-white/20 rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-white/40 focus:bg-slate-700/70 transition-all duration-300"
                         disabled={isLoading}
                         onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                       />
