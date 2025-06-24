@@ -7,6 +7,10 @@ import Head from 'next/head';
 const SUPABASE_URL = 'https://rfjzrurkbgogjowskiuz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmanpydXJrYmdvZ2pvd3NraXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTM0NzgsImV4cCI6MjA2NjMyOTQ3OH0.fmtcoR61pFIMR5R3w07O-CypoQ0Y0_7yQE4GWftdEG4';
 
+// Example of what it should look like:
+// const SUPABASE_URL = 'https://abcdefghijklmnop.supabase.co';
+// const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprbG1ub3AiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYzNjU4NDQ5MCwiZXhwIjoxOTUyMTYwNDkwfQ.xyz123';
+
 // Simple Supabase client (you can also use the official supabase-js client)
 class SupabaseClient {
   constructor(url, key) {
@@ -58,13 +62,28 @@ class SupabaseClient {
   }
 
   async upsertCustomWorkout(workout) {
-    return this.request('/custom_workouts', {
-      method: 'POST',
-      body: JSON.stringify(workout),
-      headers: {
-        'Prefer': 'resolution=merge-duplicates,return=representation'
+    try {
+      // Try INSERT first
+      return await this.request('/custom_workouts', {
+        method: 'POST',
+        body: JSON.stringify(workout)
+      });
+    } catch (error) {
+      // If INSERT fails due to conflict, try UPDATE
+      if (error.message.includes('duplicate') || error.message.includes('conflict')) {
+        return await this.request(`/custom_workouts?date=eq.${workout.date}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: workout.name,
+            exercises: workout.exercises,
+            focus: workout.focus,
+            duration: workout.duration,
+            created_by: workout.created_by
+          })
+        });
       }
-    });
+      throw error;
+    }
   }
 
   // Workout packages operations
@@ -109,6 +128,28 @@ class SupabaseClient {
       method: 'POST',
       body: JSON.stringify(dbLog)
     });
+  }
+
+  // Helper method to check if tables exist
+  async checkTables() {
+    try {
+      const tables = ['users', 'custom_workouts', 'workout_packages', 'workout_logs'];
+      const results = {};
+      
+      for (const table of tables) {
+        try {
+          await this.request(`/${table}?limit=1`);
+          results[table] = 'exists';
+        } catch (error) {
+          results[table] = 'missing';
+        }
+      }
+      
+      return results;
+    } catch (error) {
+      console.error('Error checking tables:', error);
+      return {};
+    }
   }
 }
 
@@ -1573,6 +1614,23 @@ export default function App() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // First check if tables exist
+        console.log('Checking database tables...');
+        const tableStatus = await handleOperation(() => supabase.checkTables());
+        console.log('Table status:', tableStatus);
+        
+        // Check if critical tables are missing
+        const missingTables = Object.entries(tableStatus)
+          .filter(([table, status]) => status === 'missing')
+          .map(([table]) => table);
+        
+        if (missingTables.length > 0) {
+          console.error('Missing tables:', missingTables);
+          alert(`Database tables missing: ${missingTables.join(', ')}. Please run the SQL setup in Supabase dashboard.`);
+          setDataLoaded(true);
+          return;
+        }
+
         // Load users
         const usersData = await handleOperation(() => supabase.getUsers());
         const mergedUsers = [...SYSTEM_USERS];
@@ -1620,6 +1678,7 @@ export default function App() {
         setWorkoutLogs(transformedLogs);
 
         setDataLoaded(true);
+        console.log('Data loaded successfully!');
       } catch (err) {
         console.error('Failed to load data:', err);
         setDataLoaded(true); // Still set as loaded to allow app to function
