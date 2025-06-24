@@ -91,7 +91,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
               </div>
               {/* Confirmed text is "Dire Crossfit" */}
               <h1 className="text-3xl font-bold text-white mb-2">Dire Crossfit</h1>
-              <p className="text-white/70">Secure access portal</p>
+              {/* Removed: <p className="text-white/70">Secure access portal</p> */}
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
