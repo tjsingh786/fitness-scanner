@@ -78,14 +78,17 @@ function LoginPage({ onLogin, onCoachLogin }) {
           </div>
         )}
 
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8">
+        {/* Changed py-8 to py-4 to reduce overall vertical padding */}
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-4">
           <div className="w-full max-w-md">
-            <div className="text-center mb-0">
-              {/* INCREASED SIZE HERE FROM w-32 h-32 to w-48 h-48 */}
-              <div className="w-72 h-72 mx-auto mb-6 flex items-center justify-center">
-                <img 
+            {/* Reduced spacing above and below the logo */}
+            <div className="text-center mb-2"> {/* Changed mb-4 to mb-2 */}
+              {/* INCREASED SIZE FOR LOGO (no change here from last turn) */}
+              {/* Reduced mb-6 here to mb-4 or mb-2, let's try mb-4 */}
+              <div className="w-64 h-64 mx-auto mb-4 flex items-center justify-center">
+                <img
                   src="/img.png"
-                  alt="Dire Crossfit Logo" 
+                  alt="Dire Crossfit Logo"
                   className="w-full h-full object-contain"
                 />
               </div>
@@ -761,11 +764,11 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                     </div>
                     <h2 className="text-xl font-bold text-white mb-2">Assign Workout</h2>
                     <p className="text-white/70">
-                      {new Date(selectedDate).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
+                      {new Date(selectedDate).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
                       })}
                     </p>
                   </div>
@@ -782,7 +785,7 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                     {workoutPackages.length > 0 && (
                       <>
                         <div className="text-center text-white/60 text-sm">OR</div>
-                        
+
                         <div className="space-y-2">
                           <p className="text-white/80 text-sm font-medium">Choose from packages:</p>
                           {workoutPackages.map((pkg) => (
@@ -808,11 +811,11 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                     </div>
                     <h2 className="text-xl font-bold text-white mb-2">Create Workout for</h2>
                     <p className="text-white/70">
-                      {new Date(selectedDate).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
+                      {new Date(selectedDate).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
                       })}
                     </p>
                   </div>
