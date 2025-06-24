@@ -1,16 +1,21 @@
 // pages/api/custom-workouts.js
 import { turso, initDb } from '../../lib/turso';
 
-let dbInitialized = false;
+let initPromise;
 async function ensureDbInitialized() {
-  if (!dbInitialized) {
-    await initDb();
-    dbInitialized = true;
+  if (!initPromise) {
+    initPromise = initDb();
   }
+  return initPromise;
 }
 
 export default async function handler(req, res) {
-  await ensureDbInitialized();
+  try {
+    await ensureDbInitialized();
+  } catch (dbError) {
+    console.error("Database initialization failed for API route /api/custom-workouts:", dbError);
+    return res.status(500).json({ error: "Database not ready." });
+  }
 
   if (req.method === 'GET') {
     try {
@@ -36,7 +41,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing required fields for custom workout" });
     }
     try {
-      // Use INSERT OR REPLACE to update if date already exists
       await turso.execute({
         sql: `INSERT OR REPLACE INTO custom_workouts (date, workout_name, exercises, focus, duration, created_by) VALUES (?, ?, ?, ?, ?, ?);`,
         args: [date, workoutName, JSON.stringify(exercises), focus, duration, createdBy]
