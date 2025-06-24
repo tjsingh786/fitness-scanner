@@ -233,8 +233,17 @@ function LoginPage({ onLogin, onCoachLogin }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="bg-black/20 backdrop-blur-sm px-6 py-3 flex justify-between items-center text-white text-sm">
+      <div className="min-h-screen relative overflow-hidden">
+        {/* Animated Background */}
+        <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20"></div>
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+          <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-yellow-500/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-pink-500/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+        </div>
+
+        {/* Top Status Bar */}
+        <div className="relative z-10 bg-black/20 backdrop-blur-sm px-6 py-3 flex justify-between items-center text-white text-sm">
           <span>{new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
           <span className="font-bold text-lg">Dire Crossfit</span>
           <div className="flex gap-1">
@@ -243,8 +252,9 @@ function LoginPage({ onLogin, onCoachLogin }) {
           </div>
         </div>
 
+        {/* Notification */}
         {notification.show && (
-          <div className={`fixed top-20 left-4 right-4 z-50 p-4 rounded-xl backdrop-blur-md border transition-all duration-300 ${
+          <div className={`fixed top-20 left-4 right-4 z-50 p-4 rounded-2xl backdrop-blur-md border transition-all duration-300 ${
             notification.type === 'success' ? 'bg-green-500/20 border-green-400/30 text-green-100' :
             notification.type === 'error' ? 'bg-red-500/20 border-red-400/30 text-red-100' :
             'bg-blue-500/20 border-blue-400/30 text-blue-100'
@@ -253,71 +263,119 @@ function LoginPage({ onLogin, onCoachLogin }) {
           </div>
         )}
 
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-4">
+        {/* Main Content */}
+        <div className="relative z-10 flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8">
           <div className="w-full max-w-md">
+            {/* Logo Section */}
             <div className="text-center mb-8">
-              <div className="w-32 h-32 mx-auto mb-2 flex items-center justify-center">
-                <img 
-                  src="/img.png"
-                  alt="Dire Crossfit Logo" 
-                  className="w-full h-full object-contain"
-                />
+              <div className="w-20 h-20 mx-auto mb-6 relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur opacity-75"></div>
+                <div className="relative w-full h-full bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center">
+                  <span className="text-3xl">💪</span>
+                </div>
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Dire Crossfit</h1>
-              <p className="text-white/70">Secure access portal</p>
+              <h1 className="text-4xl font-bold text-white mb-3 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+                Dire Crossfit
+              </h1>
+              <p className="text-white/70 text-lg">Secure access portal</p>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20">
-              <div className="flex items-center gap-3 mb-6">
-                <Shield size={20} className="text-purple-400" />
-                <h2 className="text-xl font-bold text-white">Sign In</h2>
-              </div>
-
-              <div className="space-y-4">
-                <div className="relative">
-                  <User size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/40" />
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Username"
-                    className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-purple-400"
-                    disabled={isLoading}
-                  />
+            {/* Glass Login Card */}
+            <div className="relative">
+              {/* Card Glow Effect */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-3xl blur opacity-25"></div>
+              
+              {/* Main Card */}
+              <div className="relative bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+                {/* Sign In Header */}
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                    <Shield size={16} className="text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Sign In</h2>
                 </div>
 
-                <div className="relative">
-                  <Lock size={16} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/40" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password"
-                    className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-xl py-3 pl-12 pr-12 focus:outline-none focus:border-purple-400"
-                    disabled={isLoading}
-                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                  />
-                  <button
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/40"
-                    disabled={isLoading}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
+                {/* Form */}
+                <div className="space-y-6">
+                  {/* Username Input */}
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition-opacity duration-300"></div>
+                    <div className="relative">
+                      <User size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50 z-10" />
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Username"
+                        className="w-full bg-white/5 backdrop-blur-md text-white placeholder-white/50 border border-white/20 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-white/40 focus:bg-white/10 transition-all duration-300"
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
 
-                <button
-                  onClick={handleLogin}
-                  disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Shield size={16} />}
-                  {isLoading ? 'Signing In...' : 'Sign In'}
-                </button>
+                  {/* Password Input */}
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition-opacity duration-300"></div>
+                    <div className="relative">
+                      <Lock size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/50 z-10" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Password"
+                        className="w-full bg-white/5 backdrop-blur-md text-white placeholder-white/50 border border-white/20 rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-white/40 focus:bg-white/10 transition-all duration-300"
+                        disabled={isLoading}
+                        onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                      />
+                      <button
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors z-10"
+                        disabled={isLoading}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sign In Button */}
+                  <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-2xl blur opacity-75 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <button
+                      onClick={handleLogin}
+                      disabled={isLoading}
+                      className="relative w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 disabled:opacity-50 hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02]"
+                    >
+                      {isLoading ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      ) : (
+                        <Shield size={20} />
+                      )}
+                      <span className="text-lg">{isLoading ? 'Signing In...' : 'Sign In'}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        <style jsx>{`
+          @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+          }
+          .animate-blob {
+            animation: blob 7s infinite;
+          }
+          .animation-delay-2000 {
+            animation-delay: 2s;
+          }
+          .animation-delay-4000 {
+            animation-delay: 4s;
+          }
+        `}</style>
       </div>
     </>
   );
