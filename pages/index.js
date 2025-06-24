@@ -7,6 +7,7 @@ import Head from 'next/head';
 const SUPABASE_URL = 'https://rfjzrurkbgogjowskiuz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmanpydXJrYmdvZ2pvd3NraXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTM0NzgsImV4cCI6MjA2NjMyOTQ3OH0.fmtcoR61pFIMR5R3w07O-CypoQ0Y0_7yQE4GWftdEG4';
 
+
 // Example of what it should look like:
 // const SUPABASE_URL = 'https://abcdefghijklmnop.supabase.co';
 // const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprbG1ub3AiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYzNjU4NDQ5MCwiZXhwIjoxOTUyMTYwNDkwfQ.xyz123';
@@ -313,15 +314,6 @@ function LoginPage({ onLogin, onCoachLogin }) {
                   {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Shield size={16} />}
                   {isLoading ? 'Signing In...' : 'Sign In'}
                 </button>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded-xl">
-                  <p className="text-blue-200 text-xs text-center">User: <span className="font-mono">Admintest</span> / <span className="font-mono">Admin@123</span></p>
-                </div>
-                <div className="p-3 bg-orange-500/10 border border-orange-400/20 rounded-xl">
-                  <p className="text-orange-200 text-xs text-center">Coach: <span className="font-mono">coachlogin</span> / <span className="font-mono">coach@123</span></p>
-                </div>
               </div>
             </div>
           </div>
