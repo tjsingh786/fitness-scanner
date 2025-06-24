@@ -80,9 +80,9 @@ function LoginPage({ onLogin, onCoachLogin }) {
 
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8">
           <div className="w-full max-w-md">
-            <div className="text-center mb-8">
+            <div className="text-center mb-0">
               {/* Reverted logo container size to original w-32 h-32 */}
-              <div className="w-32 h-32 mx-auto mb-6 flex items-center justify-center">
+              <div className="w-40 h-40 mx-auto mb-6 flex items-center justify-center">
                 <img 
                   src="/img.png"
                   alt="Dire Crossfit Logo" 
