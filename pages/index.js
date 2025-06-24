@@ -54,7 +54,6 @@ function LoginPage({ onLogin, onCoachLogin }) {
   return (
     <>
       <Head>
-        {/* Changed title to reflect "Dire Crossfit" */}
         <title>Dire Crossfit - Secure Login</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -62,7 +61,6 @@ function LoginPage({ onLogin, onCoachLogin }) {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <div className="bg-black/20 backdrop-blur-sm px-6 py-3 flex justify-between items-center text-white text-sm">
           <span>{new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
-          {/* Updated text here */}
           <span className="font-bold text-lg">Dire Crossfit</span>
           <div className="flex gap-1">
             <div className="w-4 h-2 bg-white rounded-sm"></div>
@@ -83,15 +81,15 @@ function LoginPage({ onLogin, onCoachLogin }) {
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              {/* Replaced the circular shield icon with the image logo */}
-              <div className="w-32 h-32 mx-auto mb-6 flex items-center justify-center">
+              {/* INCREASED SIZE HERE FROM w-32 h-32 to w-48 h-48 */}
+              <div className="w-48 h-48 mx-auto mb-6 flex items-center justify-center">
                 <img 
-                  src="/img.png" // Path to your saved logo image
+                  src="/dire-crossfit-logo.png"
                   alt="Dire Crossfit Logo" 
-                  className="w-full h-full object-contain" // Use object-contain to fit the image
+                  className="w-full h-full object-contain"
                 />
               </div>
-              {/* Updated welcome text */}
+              {/* Confirmed text is "Dire Crossfit" */}
               <h1 className="text-3xl font-bold text-white mb-2">Dire Crossfit</h1>
               <p className="text-white/70">Secure access portal</p>
             </div>
