@@ -311,12 +311,10 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   const renderCalendarDays = () => {
     const days = [];
     
-    // Empty cells for days before month starts
     for (let i = 0; i < firstDayWeekday; i++) {
       days.push(<div key={`empty-${i}`} className="h-12"></div>);
     }
     
-    // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const isPast = isPastDate(day);
       const isTodayDate = isToday(day);
@@ -350,7 +348,6 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-      {/* Calendar Header */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={prevMonth}
@@ -373,7 +370,6 @@ function CalendarView({ customWorkouts, onDateSelect }) {
         </button>
       </div>
       
-      {/* Day Headers */}
       <div className="grid grid-cols-7 gap-1 mb-2">
         {dayNames.map(day => (
           <div key={day} className="h-8 flex items-center justify-center text-xs font-medium text-white/60">
@@ -382,12 +378,10 @@ function CalendarView({ customWorkouts, onDateSelect }) {
         ))}
       </div>
       
-      {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-1">
         {renderCalendarDays()}
       </div>
       
-      {/* Legend */}
       <div className="mt-4 flex items-center justify-center gap-4 text-xs">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
@@ -441,7 +435,9 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts }) {
 
     setCustomWorkouts(prev => ({ ...prev, [selectedDate]: workout }));
     showNotification(`Workout saved for ${selectedDate}! 💪`, 'success');
-    setSelectedDate(''); setWorkoutName(''); setExercises(['']);
+    setSelectedDate(''); 
+    setWorkoutName(''); 
+    setExercises(['']);
   };
 
   return (
@@ -587,7 +583,7 @@ function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
   const [customTime, setCustomTime] = useState('');
   const [isCustomTime, setIsCustomTime] = useState(false);
   
-  const actualDuration = Math.floor(workoutData.duration / 60); // Convert to minutes
+  const actualDuration = Math.floor(workoutData.duration / 60);
   
   const handleSaveLog = () => {
     const finalTime = isCustomTime ? parseInt(customTime) || actualDuration : actualDuration;
@@ -596,16 +592,7 @@ function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
       date: new Date().toLocaleDateString(),
       time: new Date().toLocaleTimeString(),
       workout: workoutData.name,
-      duration: finalTime, // Store as minutes
-      actualDuration: actualDuration,
-  const handleSaveLog = () => {
-    const finalTime = isCustomTime ? parseInt(customTime) || actualDuration : actualDuration;
-    const logEntry = {
-      user: currentUser.name,
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString(),
-      workout: workoutData.name,
-      duration: finalTime, // Store as minutes
+      duration: finalTime,
       actualDuration: actualDuration,
       totalExercises: workoutData.totalExercises,
       completedExercises: workoutData.completedExercises,
@@ -703,7 +690,6 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
   const [workouts, setWorkouts] = useState([]);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [currentWorkout, setCurrentWorkout] = useState(null);
-  const [activeTimers, setActiveTimers] = useState({});
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
   const [showCompletion, setShowCompletion] = useState(false);
 
@@ -722,7 +708,6 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
   const todaysWorkout = getTodaysWorkout();
   const isCustomWorkout = customWorkouts[new Date().toISOString().split('T')[0]] !== undefined;
 
-  // Get today's leaderboard
   const getTodaysLeader = () => {
     const today = new Date().toLocaleDateString();
     const todaysLogs = workoutLogs.filter(log => log.date === today && log.workout === todaysWorkout.name);
@@ -758,7 +743,6 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
           name: match[1].trim(),
           sets: isTimeBased ? 1 : parseInt(match[2], 10),
           reps: isTimeBased ? parseInt(match[2], 10) : parseInt(match[3], 10) || 1,
-          restTime: 60,
           completed: 0,
           isActive: false
         };
@@ -829,7 +813,6 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
   const handleSaveWorkoutLog = (logEntry) => {
     setWorkoutLogs(prev => [logEntry, ...prev]);
     
-    // Check if this is a new record
     const today = new Date().toLocaleDateString();
     const todaysLogs = workoutLogs.filter(log => log.date === today && log.workout === logEntry.workout);
     const isNewRecord = todaysLogs.length === 0 || logEntry.duration < Math.min(...todaysLogs.map(log => log.duration));
@@ -862,7 +845,6 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
           </div>
         </div>
 
-        {/* Leader Banner */}
         {leader && (
           <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-md border-b border-yellow-400/30 px-4 py-2">
             <div className="flex items-center justify-center gap-2">
