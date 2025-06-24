@@ -18,6 +18,7 @@ const DEFAULT_WORKOUTS = {
   Sunday: { name: "Rest", exercises: ["Stretching 15 minutes", "Meditation 10 minutes"], focus: "Mental", duration: "25 min" }
 };
 
+
 function LoginPage({ onLogin, onCoachLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -53,14 +54,16 @@ function LoginPage({ onLogin, onCoachLogin }) {
   return (
     <>
       <Head>
-        <title>Dire - Secure Login</title>
+        {/* Changed title to reflect "Dire Crossfit" */}
+        <title>Dire Crossfit - Secure Login</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <div className="bg-black/20 backdrop-blur-sm px-6 py-3 flex justify-between items-center text-white text-sm">
           <span>{new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
-          <span className="font-bold text-lg">Dire</span>
+          {/* Updated text here */}
+          <span className="font-bold text-lg">Dire Crossfit</span>
           <div className="flex gap-1">
             <div className="w-4 h-2 bg-white rounded-sm"></div>
             <div className="w-6 h-2 bg-white/50 rounded-sm"></div>
@@ -80,10 +83,16 @@ function LoginPage({ onLogin, onCoachLogin }) {
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Shield size={32} className="text-white" />
+              {/* Replaced the circular shield icon with the image logo */}
+              <div className="w-32 h-32 mx-auto mb-6 flex items-center justify-center">
+                <img 
+                  src="/dire-crossfit-logo.png" // Path to your saved logo image
+                  alt="Dire Crossfit Logo" 
+                  className="w-full h-full object-contain" // Use object-contain to fit the image
+                />
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">Welcome to Dire</h1>
+              {/* Updated welcome text */}
+              <h1 className="text-3xl font-bold text-white mb-2">Dire Crossfit</h1>
               <p className="text-white/70">Secure access portal</p>
             </div>
 
@@ -151,6 +160,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
     </>
   );
 }
+
 
 function UserSelection({ onUserSelect }) {
   const [searchTerm, setSearchTerm] = useState('');
