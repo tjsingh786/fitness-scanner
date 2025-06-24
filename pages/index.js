@@ -1,9 +1,11 @@
 // pages/index.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
 import { Play, CheckCircle, RotateCcw, Eye, EyeOff, Lock, User, Shield, Calendar, Dumbbell, Clock, Trophy, Users, ChevronDown, Search, CalendarDays, BookOpen, Settings, Save, X, Target, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import Head from 'next/head';
 
-const SYSTEM_USERS = [
+// SYSTEM_USERS will now only define the initial seed data.
+// The actual list of users will be fetched from the database.
+const SYSTEM_USERS_SEED = [
   { id: 'akshay', name: 'Akshay', avatar: '💪', color: 'from-blue-500 to-cyan-500' },
   { id: 'ravish', name: 'Ravish', avatar: '🔥', color: 'from-orange-500 to-red-500' }
 ];
@@ -37,6 +39,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
     }
     setIsLoading(true);
     setTimeout(() => {
+      // These are still hardcoded for this demo, in a real app, they'd hit an auth API
       if (username === 'Admintest' && password === 'Admin@123') {
         showNotification('Login successful! 🚀', 'success');
         setTimeout(() => onLogin(), 1000);
@@ -152,17 +155,42 @@ function LoginPage({ onLogin, onCoachLogin }) {
   );
 }
 
-function UserSelection({ onUserSelect }) {
+function UserSelection({ onUserSelect }) { // We will fetch users internally
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [availableUsers, setAvailableUsers] = useState([]); // State for users fetched from API
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
   const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 2000);
   };
 
-  const filteredUsers = SYSTEM_USERS.filter(user => user.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch('/api/users');
+      if (res.ok) {
+        const usersData = await res.json();
+        setAvailableUsers(usersData);
+      } else {
+        console.error('Failed to fetch users:', res.statusText);
+        showNotification('Failed to load users.', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      showNotification('Error loading users.', 'error');
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const filteredUsers = availableUsers.filter(user => user.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const handleUserSelect = (user) => {
     showNotification(`Welcome ${user.name}! 👋`, 'success');
@@ -223,7 +251,9 @@ function UserSelection({ onUserSelect }) {
                 </button>
               </div>
 
-              {isDropdownOpen && (
+              {loadingUsers ? (
+                <div className="p-4 text-center text-white/60">Loading users...</div>
+              ) : isDropdownOpen && (
                 <div className="bg-black/40 backdrop-blur-md rounded-xl border border-white/20 max-h-40 overflow-y-auto">
                   {filteredUsers.length > 0 ? (
                     <div className="p-2">
@@ -271,6 +301,8 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   const nextMonth = () => {
     const next = new Date(currentDate);
     next.setMonth(next.getMonth() + 1);
+    // You might want to remove this limit if coaches can schedule far into the future
+    // For now, keeping it to prevent infinitely far dates, align with previous logic.
     if (next <= new Date(today.getFullYear(), today.getMonth() + 1, today.getDate())) {
       setCurrentDate(next);
     }
@@ -279,6 +311,7 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   const prevMonth = () => {
     const prev = new Date(currentDate);
     prev.setMonth(prev.getMonth() - 1);
+    // Limit to current month or earlier for prev month button
     if (prev >= new Date(today.getFullYear(), today.getMonth())) {
       setCurrentDate(prev);
     }
@@ -291,7 +324,9 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   
   const isPastDate = (day) => {
     const date = new Date(year, month, day);
-    return date < today && !isToday(day);
+    // Important: compare date parts only for pastDate, not time.
+    const todayNoTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return date < todayNoTime;
   };
   
   const getDateString = (day) => {
@@ -307,44 +342,6 @@ function CalendarView({ customWorkouts, onDateSelect }) {
       const dateString = getDateString(day);
       onDateSelect(dateString);
     }
-  };
-  
-  const renderCalendarDays = () => {
-    const days = [];
-    
-    for (let i = 0; i < firstDayWeekday; i++) {
-      days.push(<div key={`empty-${i}`} className="h-12"></div>);
-    }
-    
-    for (let day = 1; day <= daysInMonth; day++) {
-      const isPast = isPastDate(day);
-      const isTodayDate = isToday(day);
-      const hasWorkout = hasCustomWorkout(day);
-      
-      days.push(
-        <button
-          key={day}
-          onClick={() => handleDateClick(day)}
-          disabled={isPast}
-          className={`h-12 w-full flex items-center justify-center text-sm font-medium rounded-lg transition-all relative ${
-            isTodayDate 
-              ? 'bg-blue-500 text-white shadow-lg' 
-              : isPast 
-                ? 'text-white/30 cursor-not-allowed'
-                : hasWorkout
-                  ? 'bg-green-500/30 text-green-300 border border-green-400/50 hover:bg-green-500/40'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
-          }`}
-        >
-          {day}
-          {hasWorkout && (
-            <div className="absolute top-1 right-1 w-2 h-2 bg-green-400 rounded-full"></div>
-          )}
-        </button>
-      );
-    }
-    
-    return days;
   };
   
   return (
@@ -397,7 +394,7 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   );
 }
 
-function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPackages, setWorkoutPackages }) {
+function CoachDashboard({ onLogout }) { // Removed customWorkouts, setCustomWorkouts, workoutPackages, setWorkoutPackages, users, setUsers props
   const [selectedDate, setSelectedDate] = useState('');
   const [workoutName, setWorkoutName] = useState('');
   const [exercises, setExercises] = useState(['']);
@@ -406,10 +403,79 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
   const [showDateModal, setShowDateModal] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState(null);
 
+  // States for data fetched from API
+  const [workoutPackages, setWorkoutPackages] = useState([]);
+  const [customWorkouts, setCustomWorkouts] = useState({});
+  const [users, setUsers] = useState([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  // New states for user management (same as before)
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserAvatar, setNewUserAvatar] = useState('');
+  const [newUserColor, setNewUserColor] = useState('from-gray-500 to-gray-600');
+
   const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 2000);
   };
+
+  // --- Fetching Data from API ---
+  const fetchWorkoutPackages = useCallback(async () => {
+    try {
+      const res = await fetch('/api/workout-packages');
+      if (res.ok) {
+        const data = await res.json();
+        setWorkoutPackages(data);
+      } else {
+        console.error('Failed to fetch workout packages:', res.statusText);
+        showNotification('Failed to load workout packages.', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching workout packages:', error);
+      showNotification('Error loading workout packages.', 'error');
+    }
+  }, []);
+
+  const fetchCustomWorkouts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/custom-workouts');
+      if (res.ok) {
+        const data = await res.json();
+        setCustomWorkouts(data);
+      } else {
+        console.error('Failed to fetch custom workouts:', res.statusText);
+        showNotification('Failed to load custom workouts.', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching custom workouts:', error);
+      showNotification('Error loading custom workouts.', 'error');
+    }
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/users');
+      if (res.ok) {
+        const usersData = await res.json();
+        setUsers(usersData);
+      } else {
+        console.error('Failed to fetch users:', res.statusText);
+        showNotification('Failed to load users.', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      showNotification('Error loading users.', 'error');
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadAllData = async () => {
+      setLoadingData(true);
+      await Promise.all([fetchWorkoutPackages(), fetchCustomWorkouts(), fetchUsers()]);
+      setLoadingData(false);
+    };
+    loadAllData();
+  }, [fetchWorkoutPackages, fetchCustomWorkouts, fetchUsers]);
 
   const getNextDays = (count = 30) => {
     const days = [];
@@ -422,49 +488,207 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
     return days;
   };
 
-  const saveWorkoutPackage = () => {
-    if (!workoutName || exercises.filter(e => e.trim()).length === 0) {
+  // --- API Calls for Mutations ---
+  const saveWorkoutPackage = async () => {
+    if (!workoutName.trim() || exercises.filter(e => e.trim()).length === 0) {
       showNotification('Please fill all fields', 'error');
       return;
     }
 
-    const workoutPackage = {
-      id: Date.now(),
+    const newPackage = {
       name: workoutName,
       exercises: exercises.filter(e => e.trim()),
-      focus: 'Custom',
-      duration: '30-45 min',
+      focus: 'Custom', // Can make this dynamic later
+      duration: '30-45 min', // Can make this dynamic later
       createdBy: 'Coach',
       createdAt: new Date().toISOString()
     };
 
-    setWorkoutPackages(prev => [...prev, workoutPackage]);
-    showNotification(`Workout package "${workoutName}" created! 💪`, 'success');
-    setWorkoutName(''); 
-    setExercises(['']);
+    try {
+      const res = await fetch('/api/workout-packages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPackage)
+      });
+      if (res.ok) {
+        showNotification(`Workout package "${workoutName}" created! 💪`, 'success');
+        setWorkoutName('');
+        setExercises(['']);
+        fetchWorkoutPackages(); // Refresh the list
+      } else {
+        console.error('Failed to save workout package:', res.statusText);
+        showNotification('Failed to save package.', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving workout package:', error);
+      showNotification('Error saving package.', 'error');
+    }
   };
 
-  const deleteWorkoutPackage = (packageId) => {
-    setWorkoutPackages(prev => prev.filter(pkg => pkg.id !== packageId));
-    showNotification('Workout package deleted', 'success');
+  const deleteWorkoutPackage = async (packageId) => {
+    try {
+      const res = await fetch(`/api/workout-packages?id=${packageId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showNotification('Workout package deleted', 'success');
+        fetchWorkoutPackages(); // Refresh the list
+      } else {
+        console.error('Failed to delete workout package:', res.statusText);
+        showNotification('Failed to delete package.', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting workout package:', error);
+      showNotification('Error deleting package.', 'error');
+    }
   };
 
-  const assignPackageToDate = (date, packageData) => {
-    setCustomWorkouts(prev => ({ ...prev, [date]: packageData }));
-    showNotification(`Workout assigned to ${new Date(date).toLocaleDateString()}! 📅`, 'success');
-    setShowDateModal(false);
-    setSelectedPackage(null);
+  const assignPackageToDate = async (date, packageData) => {
+    const workoutToAssign = {
+      date: date,
+      workoutName: packageData.name,
+      exercises: packageData.exercises,
+      focus: packageData.focus,
+      duration: packageData.duration,
+      createdBy: packageData.createdBy || 'Coach'
+    };
+
+    try {
+      const res = await fetch('/api/custom-workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(workoutToAssign)
+      });
+      if (res.ok) {
+        showNotification(`Workout assigned to ${new Date(date).toLocaleDateString()}! 📅`, 'success');
+        setShowDateModal(false);
+        setSelectedPackage(null);
+        fetchCustomWorkouts(); // Refresh the custom workouts for calendar
+      } else {
+        console.error('Failed to assign workout:', res.statusText);
+        showNotification('Failed to assign workout.', 'error');
+      }
+    } catch (error) {
+      console.error('Error assigning workout:', error);
+      showNotification('Error assigning workout.', 'error');
+    }
   };
 
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    setShowDateModal(true);
+  const handleAddUser = async () => {
+    if (!newUserName.trim() || !newUserAvatar.trim()) {
+      showNotification('Please enter user name and avatar', 'error');
+      return;
+    }
+    const newUserId = newUserName.toLowerCase().replace(/\s/g, '-');
+    const newUser = {
+      id: newUserId,
+      name: newUserName,
+      avatar: newUserAvatar,
+      color: newUserColor
+    };
+
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      });
+      if (res.ok) {
+        showNotification(`User "${newUserName}" added!`, 'success');
+        setNewUserName('');
+        setNewUserAvatar('');
+        setNewUserColor('from-gray-500 to-gray-600');
+        fetchUsers(); // Refresh the user list
+      } else if (res.status === 500) {
+        // Check for specific error like duplicate ID from DB.
+        const errorData = await res.json();
+        if (errorData.error.includes("UNIQUE constraint failed: users.id")) {
+          showNotification('User ID already exists. Please choose a different name.', 'error');
+        } else {
+          showNotification('Failed to add user.', 'error');
+        }
+      } else {
+        showNotification('Failed to add user.', 'error');
+      }
+    } catch (error) {
+      console.error('Error adding user:', error);
+      showNotification('Error adding user.', 'error');
+    }
   };
 
-  const createManualWorkout = () => {
-    setShowDateModal(false);
-    setActiveTab('manual');
+  const handleDeleteUser = async (userId) => {
+    // Check if it's a system user (defined in SYSTEM_USERS_SEED)
+    const isSystemUser = SYSTEM_USERS_SEED.some(u => u.id === userId);
+    if (isSystemUser) {
+      showNotification('Cannot delete default system users.', 'error');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete user "${users.find(u => u.id === userId)?.name}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/users?id=${userId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showNotification('User deleted!', 'success');
+        fetchUsers(); // Refresh the user list
+      } else {
+        console.error('Failed to delete user:', res.statusText);
+        showNotification('Failed to delete user.', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      showNotification('Error deleting user.', 'error');
+    }
   };
+
+  const createManualWorkout = async () => {
+    if (!selectedDate || !workoutName.trim() || exercises.filter(e => e.trim()).length === 0) {
+      showNotification('Please fill all fields', 'error');
+      return;
+    }
+    const workout = {
+      date: selectedDate,
+      workoutName: workoutName,
+      exercises: exercises.filter(e => e.trim()),
+      focus: 'Custom',
+      duration: '30-45 min',
+      createdBy: 'Coach'
+    };
+
+    try {
+      const res = await fetch('/api/custom-workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(workout)
+      });
+      if (res.ok) {
+        showNotification(`Workout created for ${selectedDate}! 💪`, 'success');
+        setSelectedDate('');
+        setWorkoutName('');
+        setExercises(['']);
+        setShowDateModal(false); // Close modal if opened from calendar
+        fetchCustomWorkouts(); // Refresh the custom workouts for calendar
+      } else {
+        console.error('Failed to create manual workout:', res.statusText);
+        showNotification('Failed to create workout.', 'error');
+      }
+    } catch (error) {
+      console.error('Error creating manual workout:', error);
+      showNotification('Error creating workout.', 'error');
+    }
+  };
+
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center text-white text-xl">
+        Loading Coach Dashboard...
+      </div>
+    );
+  }
 
   return (
     <>
@@ -492,7 +716,8 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
           {[
             { id: 'packages', label: 'Workout Packages', icon: BookOpen }, 
             { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-            { id: 'manual', label: 'Manual Create', icon: Settings }
+            { id: 'manual', label: 'Manual Create', icon: Settings },
+            { id: 'users', label: 'Users', icon: Users } // New tab for Users
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -694,28 +919,92 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                   </div>
 
                   <button
-                    onClick={() => {
-                      if (!selectedDate || !workoutName || exercises.filter(e => e.trim()).length === 0) {
-                        showNotification('Please fill all fields', 'error');
-                        return;
-                      }
-                      const workout = {
-                        name: workoutName,
-                        exercises: exercises.filter(e => e.trim()),
-                        focus: 'Custom',
-                        duration: '30-45 min',
-                        createdBy: 'Coach'
-                      };
-                      setCustomWorkouts(prev => ({ ...prev, [selectedDate]: workout }));
-                      showNotification(`Workout created for ${selectedDate}! 💪`, 'success');
-                      setSelectedDate(''); setWorkoutName(''); setExercises(['']);
-                    }}
+                    onClick={createManualWorkout}
                     className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                   >
                     <Save size={16} />
                     Create Workout
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'users' && ( // New User Management Tab
+            <div className="space-y-6">
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users size={24} className="text-white" />
+                </div>
+                <h1 className="text-2xl font-bold text-white mb-2">Manage Users</h1>
+                <p className="text-white/70">Add or remove user profiles</p>
+              </div>
+
+              {/* Add New User Section */}
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 mb-6">
+                <h2 className="text-xl font-bold text-white mb-4">Add New User</h2>
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    value={newUserName}
+                    onChange={(e) => setNewUserName(e.target.value)}
+                    placeholder="User Name"
+                    className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-indigo-400"
+                  />
+                  <input
+                    type="text"
+                    value={newUserAvatar}
+                    onChange={(e) => setNewUserAvatar(e.target.value)}
+                    placeholder="Avatar (e.g., 😄, 🌟, 🏋️‍♀️)"
+                    className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-indigo-400"
+                  />
+                  <select
+                    value={newUserColor}
+                    onChange={(e) => setNewUserColor(e.target.value)}
+                    className="w-full bg-black/30 text-white border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-indigo-400"
+                  >
+                    <option value="from-gray-500 to-gray-600">Gray (Default)</option>
+                    <option value="from-blue-500 to-cyan-500">Blue</option>
+                    <option value="from-orange-500 to-red-500">Red</option>
+                    <option value="from-purple-500 to-pink-500">Purple</option>
+                    <option value="from-teal-500 to-green-500">Green</option>
+                  </select>
+                  <button
+                    onClick={handleAddUser}
+                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add User
+                  </button>
+                </div>
+              </div>
+
+              {/* Existing Users List */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-white">Existing Users</h2>
+                {users.length > 0 ? (
+                  users.map((user) => (
+                    <div key={user.id} className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 bg-gradient-to-r ${user.color} rounded-full flex items-center justify-center`}>
+                          {user.avatar}
+                        </div>
+                        <span className="text-white font-medium">{user.name}</span>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        className={`bg-red-500/20 text-red-400 px-2 py-2 rounded-lg ${
+                          SYSTEM_USERS_SEED.some(u => u.id === user.id) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        disabled={SYSTEM_USERS_SEED.some(u => u.id === user.id)}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-white/60 text-center">No users added yet.</p>
+                )}
               </div>
             </div>
           )}
@@ -742,7 +1031,13 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
 
               <div className="space-y-4">
                 <button
-                  onClick={createManualWorkout}
+                  onClick={() => {
+                    setShowDateModal(false);
+                    setActiveTab('manual');
+                    // Set these states here so the manual tab is pre-filled if coming from calendar
+                    setWorkoutName(''); // Clear previous name
+                    setExercises(['']); // Clear previous exercises
+                  }}
                   className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
                   <Settings size={16} />
@@ -793,16 +1088,16 @@ function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
   const handleSaveLog = () => {
     const finalTime = isCustomTime ? parseInt(customTime) || actualDuration : actualDuration;
     const logEntry = {
-      user: currentUser.name,
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString(),
-      workout: workoutData.name,
-      duration: finalTime,
-      actualDuration: actualDuration,
-      totalExercises: workoutData.totalExercises,
-      completedExercises: workoutData.completedExercises,
-      completionRate: Math.round((workoutData.completedExercises / workoutData.totalExercises) * 100),
-      isCustom: workoutData.isCustom
+      user_id: currentUser.id, // Use user_id for database
+      date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD for consistency
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), // HH:MM:SS
+      workout_name: workoutData.name,
+      duration_minutes: finalTime,
+      actual_duration_seconds: workoutData.duration, // Original seconds duration
+      total_exercises: workoutData.totalExercises,
+      completed_exercises: workoutData.completedExercises,
+      completion_rate: Math.round((workoutData.completedExercises / workoutData.totalExercises) * 100),
+      is_custom_workout: workoutData.isCustom
     };
     
     onSaveLog(logEntry);
@@ -891,12 +1186,17 @@ function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
   );
 }
 
-function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, workoutLogs, setWorkoutLogs }) {
+function WorkoutApp({ currentUser, onLogout, onUserChange }) { // Removed customWorkouts, workoutLogs, setWorkoutLogs
   const [workouts, setWorkouts] = useState([]);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
-  const [currentWorkout, setCurrentWorkout] = useState(null);
+  const [currentWorkoutDetails, setCurrentWorkoutDetails] = useState(null); // Renamed to avoid conflict
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
   const [showCompletion, setShowCompletion] = useState(false);
+
+  // States for data fetched from API
+  const [customWorkouts, setCustomWorkouts] = useState({});
+  const [workoutLogs, setWorkoutLogs] = useState([]);
+  const [loadingData, setLoadingData] = useState(true);
 
   const getCurrentDay = () => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -909,28 +1209,74 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
     return customWorkouts[today] || DEFAULT_WORKOUTS[currentDay];
   };
 
-  const currentDay = getCurrentDay();
   const todaysWorkout = getTodaysWorkout();
   const isCustomWorkout = customWorkouts[new Date().toISOString().split('T')[0]] !== undefined;
 
   const getTodaysLeader = () => {
-    const today = new Date().toLocaleDateString();
-    const todaysLogs = workoutLogs.filter(log => log.date === today && log.workout === todaysWorkout.name);
+    const todayFormatted = new Date().toLocaleDateString('en-CA'); // Match stored date format
+    const todaysLogs = workoutLogs.filter(log => log.date === todayFormatted && log.workout_name === todaysWorkout.name);
     
     if (todaysLogs.length === 0) return null;
     
     const fastest = todaysLogs.reduce((prev, current) => 
-      (prev.duration < current.duration) ? prev : current
+      (prev.duration_minutes < current.duration_minutes) ? prev : current
     );
     
+    // Find the user name from the `users` data (needs to be passed or fetched)
+    // For simplicity, let's assume `currentUser` is a good proxy for available users for leader display.
+    // In a real app, you'd fetch all users or pass them down from App.
+    const leaderUser = SYSTEM_USERS_SEED.find(u => u.id === fastest.user_id) || { name: 'Unknown User' };
+
     return {
-      name: fastest.user,
-      time: fastest.duration,
+      name: leaderUser.name,
+      time: fastest.duration_minutes,
       total: todaysLogs.length
     };
   };
 
-  const leader = getTodaysLeader();
+  // --- Fetching Data from API ---
+  const fetchCustomWorkouts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/custom-workouts');
+      if (res.ok) {
+        const data = await res.json();
+        setCustomWorkouts(data);
+      } else {
+        console.error('Failed to fetch custom workouts:', res.statusText);
+        showNotification('Failed to load custom workouts.', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching custom workouts:', error);
+      showNotification('Error loading custom workouts.', 'error');
+    }
+  }, []);
+
+  const fetchWorkoutLogs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/workout-logs');
+      if (res.ok) {
+        const data = await res.json();
+        setWorkoutLogs(data);
+      } else {
+        console.error('Failed to fetch workout logs:', res.statusText);
+        showNotification('Failed to load workout logs.', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching workout logs:', error);
+      showNotification('Error loading workout logs.', 'error');
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadAllData = async () => {
+      setLoadingData(true);
+      await Promise.all([fetchCustomWorkouts(), fetchWorkoutLogs()]);
+      setLoadingData(false);
+    };
+    loadAllData();
+  }, [fetchCustomWorkouts, fetchWorkoutLogs]);
+
+  const leader = getTodaysLeader(); // Recalculate when logs or current workout changes
 
   const showNotification = (message, type = 'info') => {
     setNotification({ show: true, message, type });
@@ -960,9 +1306,9 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
     const parsedWorkouts = todaysWorkout.exercises.map(exercise => parseWorkoutLine(exercise)).filter(Boolean);
     if (parsedWorkouts.length > 0) {
       setWorkouts(parsedWorkouts);
-      setCurrentWorkout({ 
-        name: todaysWorkout.name, 
-        exercises: parsedWorkouts, 
+      setCurrentWorkoutDetails({ // Updated name
+        name: todaysWorkout.name,
+        exercises: parsedWorkouts,
         totalExercises: parsedWorkouts.length,
         isCustom: isCustomWorkout
       });
@@ -976,21 +1322,21 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
   };
 
   const completeSet = (exerciseId) => {
-    setWorkouts(prev => prev.map(w => w.id === exerciseId ? { ...w, completed: Math.min(w.completed + 1, w.sets), isActive: false } : w));
+    const updatedWorkouts = workouts.map(w => w.id === exerciseId ? { ...w, completed: Math.min(w.completed + 1, w.sets), isActive: false } : w);
+    setWorkouts(updatedWorkouts); // Update state here immediately
     
-    const updatedWorkouts = workouts.map(w => w.id === exerciseId ? { ...w, completed: Math.min(w.completed + 1, w.sets) } : w);
     const allCompleted = updatedWorkouts.every(w => w.completed === w.sets);
     
     if (allCompleted) {
       setTimeout(() => {
         const workoutDuration = Math.floor((Date.now() - workoutStartTime) / 1000);
-        const completedExercises = updatedWorkouts.filter(w => w.completed === w.sets).length;
+        const completedExercisesCount = updatedWorkouts.filter(w => w.completed === w.sets).length;
         
         setShowCompletion(true);
-        setCurrentWorkout(prev => ({
+        setCurrentWorkoutDetails(prev => ({
           ...prev,
           duration: workoutDuration,
-          completedExercises: completedExercises
+          completedExercises: completedExercisesCount
         }));
       }, 1000);
     } else {
@@ -1015,23 +1361,33 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSaveWorkoutLog = (logEntry) => {
-    setWorkoutLogs(prev => [logEntry, ...prev]);
-    
-    const today = new Date().toLocaleDateString();
-    const todaysLogs = workoutLogs.filter(log => log.date === today && log.workout === logEntry.workout);
-    const isNewRecord = todaysLogs.length === 0 || logEntry.duration < Math.min(...todaysLogs.map(log => log.duration));
-    
-    if (isNewRecord) {
-      showNotification(`🏆 New record! ${logEntry.user} leads with ${logEntry.duration} min!`, 'success');
-    } else {
-      showNotification('Workout logged successfully! 📊', 'success');
+  const handleSaveWorkoutLog = async (logEntry) => {
+    try {
+      const res = await fetch('/api/workout-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logEntry)
+      });
+      if (res.ok) {
+        showNotification('Workout logged successfully! 📊', 'success');
+        fetchWorkoutLogs(); // Refresh logs to update leader
+      } else {
+        console.error('Failed to log workout:', res.statusText);
+        showNotification('Failed to log workout.', 'error');
+      }
+    } catch (error) {
+      console.error('Error logging workout:', error);
+      showNotification('Error logging workout.', 'error');
     }
   };
 
-  useEffect(() => {
-    loadTodaysWorkout();
-  }, [customWorkouts]);
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center text-white text-xl">
+        Loading Workout Data...
+      </div>
+    );
+  }
 
   return (
     <>
@@ -1090,7 +1446,7 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
 
         <div className="px-4 py-6">
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold text-white mb-2">Ready for {currentDay}? 🔥</h1>
+            <h1 className="text-3xl font-bold text-white mb-2">Ready for {getCurrentDay()}? 🔥</h1>
             <p className="text-white/70">Focus: <span className="text-purple-400">{todaysWorkout.focus}</span></p>
           </div>
 
@@ -1109,7 +1465,7 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
               </div>
             </div>
 
-            {currentWorkout && (
+            {currentWorkoutDetails && ( // Use currentWorkoutDetails here
               <div className="mb-4">
                 <div className="flex justify-between text-sm text-white/70 mb-2">
                   <span>Progress</span>
@@ -1133,7 +1489,7 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
               }`}
             >
               <Target size={16} />
-              Start {currentDay}'s Workout
+              Start {getCurrentDay()}'s Workout
             </button>
           </div>
 
@@ -1214,10 +1570,10 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
           )}
         </div>
 
-        {showCompletion && currentWorkout && (
+        {showCompletion && currentWorkoutDetails && (
           <WorkoutCompletion
             currentUser={currentUser}
-            workoutData={currentWorkout}
+            workoutData={currentWorkoutDetails}
             onClose={() => setShowCompletion(false)}
             onSaveLog={handleSaveWorkoutLog}
           />
@@ -1228,16 +1584,72 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isCoachLoggedIn, setIsCoachLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [customWorkouts, setCustomWorkouts] = useState({});
-  const [workoutLogs, setWorkoutLogs] = useState([]);
-  const [workoutPackages, setWorkoutPackages] = useState([]);
+  // Use localStorage only for simple flags like login status for this demo,
+  // as actual data is now handled by the database.
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem('isLoggedIn') || 'false');
+    }
+    return false;
+  });
+  const [isCoachLoggedIn, setIsCoachLoggedIn] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem('isCoachLoggedIn') || 'false');
+    }
+    return false;
+  });
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem('currentUser') || 'null');
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('isLoggedIn', JSON.stringify(isLoggedIn));
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('isCoachLoggedIn', JSON.stringify(isCoachLoggedIn));
+    }
+  }, [isCoachLoggedIn]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
+
+  // Handle DB initialization for development
+  useEffect(() => {
+    // Only call initDb on the client side in development
+    // In production on Vercel, API routes will handle their own initDb
+    // This is more for local dev where the API routes might not be hit immediately
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      import('../lib/turso').then(({ initDb }) => {
+        initDb();
+      });
+    }
+  }, []);
+
 
   const handleLogin = () => setIsLoggedIn(true);
   const handleCoachLogin = () => setIsCoachLoggedIn(true);
-  const handleLogout = () => { setIsLoggedIn(false); setIsCoachLoggedIn(false); setCurrentUser(null); };
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setIsCoachLoggedIn(false);
+    setCurrentUser(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('isLoggedIn');
+      localStorage.removeItem('isCoachLoggedIn');
+      localStorage.removeItem('currentUser');
+      // No need to clear customWorkouts, workoutPackages, workoutLogs, users
+      // from localStorage as they are now database-backed.
+    }
+  };
   const handleUserSelect = (user) => setCurrentUser(user);
   const handleUserChange = () => setCurrentUser(null);
 
@@ -1246,23 +1658,16 @@ export default function App() {
       {!isLoggedIn && !isCoachLoggedIn ? (
         <LoginPage onLogin={handleLogin} onCoachLogin={handleCoachLogin} />
       ) : isCoachLoggedIn ? (
-        <CoachDashboard
-          onLogout={handleLogout}
-          customWorkouts={customWorkouts}
-          setCustomWorkouts={setCustomWorkouts}
-          workoutPackages={workoutPackages}
-          setWorkoutPackages={setWorkoutPackages}
+        <CoachDashboard 
+          onLogout={handleLogout} 
         />
       ) : !currentUser ? (
         <UserSelection onUserSelect={handleUserSelect} />
       ) : (
-        <WorkoutApp
-          currentUser={currentUser}
-          onLogout={handleLogout}
-          onUserChange={handleUserChange}
-          customWorkouts={customWorkouts}
-          workoutLogs={workoutLogs}
-          setWorkoutLogs={setWorkoutLogs}
+        <WorkoutApp 
+          currentUser={currentUser} 
+          onLogout={handleLogout} 
+          onUserChange={handleUserChange} 
         />
       )}
     </>
