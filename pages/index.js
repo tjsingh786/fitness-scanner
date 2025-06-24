@@ -1493,7 +1493,7 @@ function WorkoutApp({ currentUser, onLogout, onUserChange }) {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-white capitalize">{workout.name}</h3>
-                      <p className="text-white/60 text-sm">{workout.sets} sets × {workout.reps} reps}</p>
+                      <p className="text-white/60 text-sm">{workout.sets} sets × {workout.reps} reps</p>
                     </div>
                     <div className="text-right">
                       <div className="text-xl font-bold text-white">{workout.completed}/{workout.sets}</div>
