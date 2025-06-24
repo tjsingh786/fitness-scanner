@@ -86,7 +86,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
               {/* Replaced the circular shield icon with the image logo */}
               <div className="w-32 h-32 mx-auto mb-6 flex items-center justify-center">
                 <img 
-                  src="/dire-crossfit-logo.png" // Path to your saved logo image
+                  src="/img.png" // Path to your saved logo image
                   alt="Dire Crossfit Logo" 
                   className="w-full h-full object-contain" // Use object-contain to fit the image
                 />
