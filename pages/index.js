@@ -279,17 +279,22 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   const nextMonth = () => {
     const next = new Date(currentDate);
     next.setMonth(next.getMonth() + 1);
-    if (next <= new Date(today.getFullYear(), today.getMonth() + 1, today.getDate())) {
-      setCurrentDate(next);
-    }
+    // Allow navigating to future months, but not beyond today + 1 month for calendar demo purposes if desired.
+    // For now, let's allow arbitrary future navigation in coach dashboard.
+    // if (next <= new Date(today.getFullYear(), today.getMonth() + 1, today.getDate())) {
+    //   setCurrentDate(next);
+    // }
+    setCurrentDate(next);
   };
   
   const prevMonth = () => {
     const prev = new Date(currentDate);
     prev.setMonth(prev.getMonth() - 1);
-    if (prev >= new Date(today.getFullYear(), today.getMonth())) {
-      setCurrentDate(prev);
-    }
+    // For now, let's allow arbitrary past navigation in coach dashboard.
+    // if (prev >= new Date(today.getFullYear(), today.getMonth())) {
+    //   setCurrentDate(prev);
+    // }
+    setCurrentDate(prev);
   };
   
   const isToday = (day) => {
@@ -299,6 +304,7 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   
   const isPastDate = (day) => {
     const date = new Date(year, month, day);
+    // Only disable if the date is strictly in the past, not including today
     return date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
   };
   
@@ -312,9 +318,17 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   };
   
   const handleDateClick = (day) => {
-    if (!isPastDate(day)) {
+    // A coach should be able to assign workouts to past dates for logging/retroactive assignments.
+    // Only disable if the day is in the past AND not today.
+    // Or, remove the disable entirely for coaches. Let's keep it for now but clarify the behavior.
+    const date = new Date(year, month, day);
+    if (date >= new Date(today.getFullYear(), today.getMonth(), today.getDate())) { // Can click on today or future dates
       const dateString = getDateString(day);
       onDateSelect(dateString);
+    } else {
+      // Optionally show a notification that past dates can't be modified (if that's the desired rule)
+      // For a coach dashboard, it's often desirable to allow editing past dates for logging.
+      console.log("Past dates are not selectable for new assignments in this demo context.");
     }
   };
   
@@ -329,20 +343,21 @@ function CalendarView({ customWorkouts, onDateSelect }) {
       const isPast = isPastDate(day);
       const isTodayDate = isToday(day);
       const hasWorkout = hasCustomWorkout(day);
-      
+      const isSelectable = !isPast || isTodayDate; // Can select today or future dates
+
       days.push(
         <button
           key={day}
           onClick={() => handleDateClick(day)}
-          disabled={isPast}
+          disabled={!isSelectable} // Disable if not selectable
           className={`h-12 w-full flex items-center justify-center text-sm font-medium rounded-lg transition-all relative ${
             isTodayDate 
               ? 'bg-blue-500 text-white shadow-lg' 
-              : isPast 
+              : !isSelectable // If disabled (past date and not today)
                 ? 'text-white/30 cursor-not-allowed'
-                : hasWorkout
+                : hasWorkout // Has workout and is selectable
                   ? 'bg-green-500/30 text-green-300 border border-green-400/50 hover:bg-green-500/40'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  : 'text-white/70 hover:bg-white/10 hover:text-white' // Selectable and no workout
           }`}
         >
           {day}
@@ -362,7 +377,8 @@ function CalendarView({ customWorkouts, onDateSelect }) {
         <button
           onClick={prevMonth}
           className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-          disabled={currentDate <= new Date(today.getFullYear(), today.getMonth())}
+          // Allowing previous month navigation for coach to view past assigned workouts
+          // disabled={currentDate <= new Date(today.getFullYear(), today.getMonth())} 
         >
           <ChevronLeft size={20} />
         </button>
@@ -374,7 +390,8 @@ function CalendarView({ customWorkouts, onDateSelect }) {
         <button
           onClick={nextMonth}
           className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-          disabled={currentDate >= new Date(today.getFullYear(), today.getMonth() + 1)}
+          // Allowing future month navigation for coach
+          // disabled={currentDate >= new Date(today.getFullYear(), today.getMonth() + 1)}
         >
           <ChevronRight size={20} />
         </button>
@@ -424,20 +441,9 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 2000);
   };
 
-  const getNextDays = (count = 30) => {
-    const days = [];
-    const today = new Date();
-    for (let i = 0; i < count; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      days.push(date.toISOString().split('T')[0]);
-    }
-    return days;
-  };
-
   const saveWorkoutPackage = () => {
-    if (!workoutName || exercises.filter(e => e.trim()).length === 0) {
-      showNotification('Please fill all fields', 'error');
+    if (!workoutName.trim() || exercises.filter(e => e.trim()).length === 0) {
+      showNotification('Please fill all fields for the package', 'error');
       return;
     }
 
@@ -446,7 +452,7 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
       name: workoutName,
       exercises: exercises.filter(e => e.trim()),
       focus: 'Custom',
-      duration: '30-45 min',
+      duration: '30-45 min', // Default for custom packages
       createdBy: 'Coach',
       createdAt: new Date().toISOString()
     };
@@ -466,33 +472,33 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
     setCustomWorkouts(prev => ({ ...prev, [date]: packageData }));
     showNotification(`Workout assigned to ${new Date(date).toLocaleDateString()}! 📅`, 'success');
     setShowDateModal(false);
-    setIsCreatingManualWorkout(false); // Reset this state
+    setIsCreatingManualWorkout(false); // Reset this state when done
   };
 
   const handleDateSelect = (date) => {
     setSelectedDate(date);
     setWorkoutName(''); // Clear previous input for manual creation
     setExercises(['']); // Clear previous input for manual creation
-    setIsCreatingManualWorkout(false); // Default to package selection
+    setIsCreatingManualWorkout(false); // Default to package selection view when modal opens
     setShowDateModal(true);
   };
 
   const createManualWorkoutForDate = () => {
-    if (!selectedDate || !workoutName || exercises.filter(e => e.trim()).length === 0) {
+    if (!selectedDate || !workoutName.trim() || exercises.filter(e => e.trim()).length === 0) {
       showNotification('Please fill all fields for the manual workout', 'error');
       return;
     }
     const workout = {
       name: workoutName,
       exercises: exercises.filter(e => e.trim()),
-      focus: 'Custom',
-      duration: '30-45 min',
+      focus: 'Custom', // Default for manual custom workouts
+      duration: '30-45 min', // Default for manual custom workouts
       createdBy: 'Coach'
     };
     setCustomWorkouts(prev => ({ ...prev, [selectedDate]: workout }));
     showNotification(`Manual workout created for ${new Date(selectedDate).toLocaleDateString()}! 💪`, 'success');
     setShowDateModal(false);
-    setIsCreatingManualWorkout(false);
+    setIsCreatingManualWorkout(false); // Reset state after creation
     setSelectedDate('');
     setWorkoutName('');
     setExercises(['']);
@@ -510,6 +516,11 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
       avatar: newUserAvatar,
       color: newUserColor
     };
+    // Check if user already exists (simple check by name)
+    if (users.some(user => user.name.toLowerCase() === newUserName.trim().toLowerCase())) {
+        showNotification(`User "${newUserName}" already exists.`, 'error');
+        return;
+    }
     setUsers(prev => [...prev, newUser]);
     showNotification(`User "${newUserName}" added!`, 'success');
     setNewUserName('');
@@ -518,9 +529,9 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
   };
 
   const handleDeleteUser = (userId) => {
-    // Prevent deletion of SYSTEM_USERS
+    // Prevent deletion of SYSTEM_USERS by checking if their IDs match
     if (SYSTEM_USERS.some(u => u.id === userId)) {
-      showNotification('Cannot delete system users.', 'error');
+      showNotification('Cannot delete system users (Akshay, Ravish).', 'error');
       return;
     }
     setUsers(prev => prev.filter(user => user.id !== userId));
@@ -882,13 +893,21 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                       <Save size={16} />
                       Save Workout
                     </button>
+                    {/* Back button to go back to package selection */}
+                    <button
+                      onClick={() => setIsCreatingManualWorkout(false)}
+                      className="w-full mt-2 bg-white/10 text-white py-2 rounded-xl text-sm border border-white/20"
+                    >
+                      <ChevronLeft size={14} className="inline-block mr-2" /> Back to Packages
+                    </button>
                   </div>
                 </>
               )}
+              {/* This cancel button is for the whole modal */}
               <button
                 onClick={() => {
                   setShowDateModal(false);
-                  setIsCreatingManualWorkout(false); // Ensure this resets on close
+                  setIsCreatingManualWorkout(false); // Ensure this resets on modal close
                 }}
                 className="w-full mt-4 bg-white/10 text-white py-2 rounded-xl text-sm border border-white/20"
               >
@@ -1414,14 +1433,17 @@ export default function App() {
     const initialUsers = getInitialState('users', []);
     const mergedUsers = [...SYSTEM_USERS];
     initialUsers.forEach(user => {
-      if (!SYSTEM_USERS.some(sysUser => sysUser.id === user.id)) {
+      // Only add if it's not already a system user and not a duplicate by ID
+      if (!SYSTEM_USERS.some(sysUser => sysUser.id === user.id) && !mergedUsers.some(mUser => mUser.id === user.id)) {
         mergedUsers.push(user);
       }
     });
-    // Set users on component mount or when it's updated from localStorage
+    // Set users only if there's a difference to prevent infinite loops from useEffect
+    // This deep comparison handles array of objects
     if (JSON.stringify(users) !== JSON.stringify(mergedUsers)) {
       setUsers(mergedUsers);
     }
+    // Always save the current 'users' state to localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('users', JSON.stringify(users));
     }
