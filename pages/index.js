@@ -3,10 +3,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Play, CheckCircle, RotateCcw, Eye, EyeOff, Lock, User, Shield, Calendar, Dumbbell, Clock, Trophy, Users, ChevronDown, Search, CalendarDays, BookOpen, Settings, Save, X, Target, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import Head from 'next/head';
 
-// Supabase configuration
-const SUPABASE_URL = 'https://rfjzrurkbgogjowskiuz.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmanpydXJrYmdvZ2pvd3NraXV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NTM0NzgsImV4cCI6MjA2NjMyOTQ3OH0.fmtcoR61pFIMR5R3w07O-CypoQ0Y0_7yQE4GWftdEG4';
+// Supabase configuration - REPLACE WITH YOUR ACTUAL VALUES
+const SUPABASE_URL = 'https://your-project-id.supabase.co'; // Replace with your Project URL
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Replace with your anon key
 
+// Example of what it should look like:
+// const SUPABASE_URL = 'https://abcdefghijklmnop.supabase.co';
+// const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprbG1ub3AiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYzNjU4NDQ5MCwiZXhwIjoxOTUyMTYwNDkwfQ.xyz123';
 
 // Simple Supabase client (you can also use the official supabase-js client)
 class SupabaseClient {
