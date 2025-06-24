@@ -1,4 +1,4 @@
-// pages/index.js
+// pages/index.js (The full file)
 import React, { useState, useEffect, useCallback } from 'react';
 import { Play, CheckCircle, RotateCcw, Eye, EyeOff, Lock, User, Shield, Calendar, Dumbbell, Clock, Trophy, Users, ChevronDown, Search, CalendarDays, BookOpen, Settings, Save, X, Target, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import Head from 'next/head';
@@ -18,8 +18,7 @@ const DEFAULT_WORKOUTS = {
   Sunday: { name: "Rest", exercises: ["Stretching 15 minutes", "Meditation 10 minutes"], focus: "Mental", duration: "25 min" }
 };
 
-// LoginPage remains unchanged
-
+// LoginPage remains unchanged (copy from previous full file)
 function LoginPage({ onLogin, onCoachLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -154,12 +153,12 @@ function LoginPage({ onLogin, onCoachLogin }) {
   );
 }
 
-// UserSelection component (same as before, fetches users from API)
-function UserSelection({ onUserSelect }) { // We will fetch users internally
+// UserSelection component (unchanged in its logic, still fetches users)
+function UserSelection({ onUserSelect }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
-  const [availableUsers, setAvailableUsers] = useState([]); // State for users fetched from API
+  const [availableUsers, setAvailableUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
   const showNotification = (message, type = 'info') => {
@@ -283,8 +282,7 @@ function UserSelection({ onUserSelect }) { // We will fetch users internally
   );
 }
 
-// CalendarView remains unchanged
-
+// CalendarView component (unchanged)
 function CalendarView({ customWorkouts, onDateSelect }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   
@@ -392,7 +390,7 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   );
 }
 
-// CoachDashboard component (updated to use API calls)
+// CoachDashboard component (unchanged in logic, but relies on new API imports)
 function CoachDashboard({ onLogout }) {
   const [selectedDate, setSelectedDate] = useState('');
   const [workoutName, setWorkoutName] = useState('');
@@ -1072,7 +1070,7 @@ function CoachDashboard({ onLogout }) {
   );
 }
 
-// WorkoutCompletion component (minor update for log entry)
+// WorkoutCompletion component (unchanged in logic, but uses updated fields)
 function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
   const [customTime, setCustomTime] = useState('');
   const [isCustomTime, setIsCustomTime] = useState(false);
@@ -1082,9 +1080,9 @@ function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
   const handleSaveLog = () => {
     const finalTime = isCustomTime ? parseInt(customTime) || actualDuration : actualDuration;
     const logEntry = {
-      user_id: currentUser.id, // Use user_id as per DB schema
-      date: new Date().toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }), // YYYY-MM-DD
-      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), // HH:MM:SS
+      user_id: currentUser.id,
+      date: new Date().toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
       workout_name: workoutData.name,
       duration_minutes: finalTime,
       actual_duration_seconds: workoutData.duration,
@@ -1180,7 +1178,7 @@ function WorkoutCompletion({ currentUser, workoutData, onClose, onSaveLog }) {
   );
 }
 
-// WorkoutApp component (updated to use API calls)
+// WorkoutApp component (unchanged in logic, but uses updated fields)
 function WorkoutApp({ currentUser, onLogout, onUserChange }) {
   const [workouts, setWorkouts] = useState([]);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
@@ -1207,25 +1205,20 @@ function WorkoutApp({ currentUser, onLogout, onUserChange }) {
   const isCustomWorkout = customWorkouts[new Date().toISOString().split('T')[0]] !== undefined;
 
   const getTodaysLeader = () => {
-    // Current date in YYYY-MM-DD format for comparison
     const todayFormatted = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    const todaysLogs = workoutLogs.filter(log => log.date === todayFormatted && log.workout_name === todaysWorkout.name);
+    const todaysLogs = workoutLogs.filter(log => log.date === todayFormatted && log.workoutName === todaysWorkout.name); // Changed log.workout_name to log.workoutName
     
     if (todaysLogs.length === 0) return null;
     
     const fastest = todaysLogs.reduce((prev, current) => 
-      (prev.duration_minutes < current.duration_minutes) ? prev : current
+      (prev.durationMinutes < current.durationMinutes) ? prev : current // Changed duration_minutes to durationMinutes
     );
     
-    // To get the leader's name, we would ideally need a list of all users
-    // For simplicity in this example, if currentUser is the leader, use their name,
-    // otherwise, we'd need to fetch all users or pass them down from App.
-    // Given we don't fetch all users here, we'll just display the user ID if not currentUser.
-    const leaderUserName = currentUser.id === fastest.user_id ? currentUser.name : fastest.user_id;
+    const leaderUserName = currentUser.id === fastest.userId ? currentUser.name : fastest.userId; // Changed fastest.user_id to fastest.userId
 
     return {
       name: leaderUserName,
-      time: fastest.duration_minutes,
+      time: fastest.durationMinutes, // Changed duration_minutes to durationMinutes
       total: todaysLogs.length
     };
   };
@@ -1445,9 +1438,9 @@ function WorkoutApp({ currentUser, onLogout, onUserChange }) {
             <p className="text-white/70">Focus: <span className="text-purple-400">{todaysWorkout.focus}</span></p>
           </div>
 
-          <div className={`backdrop-blur-md rounded-2xl p-4 border mb-6 ${
+          <div className="`backdrop-blur-md rounded-2xl p-4 border mb-6 ${
             isCustomWorkout ? 'bg-green-500/20 border-green-400/30' : 'bg-purple-500/20 border-purple-400/30'
-          }`}>
+          }`}">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <Dumbbell size={20} className={isCustomWorkout ? "text-green-400" : "text-purple-400"} />
@@ -1500,7 +1493,7 @@ function WorkoutApp({ currentUser, onLogout, onUserChange }) {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-white capitalize">{workout.name}</h3>
-                      <p className="text-white/60 text-sm">{workout.sets} sets × {workout.reps} reps</p>
+                      <p className="text-white/60 text-sm">{workout.sets} sets × {workout.reps} reps}</p>
                     </div>
                     <div className="text-right">
                       <div className="text-xl font-bold text-white">{workout.completed}/{workout.sets}</div>
@@ -1578,7 +1571,7 @@ function WorkoutApp({ currentUser, onLogout, onUserChange }) {
   );
 }
 
-// App component (simplified state management, fetches data from API)
+// App component (unchanged in logic, just uses new imports)
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1616,10 +1609,6 @@ export default function App() {
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
     }
   }, [currentUser]);
-
-  // Removed direct initDb call in App component's useEffect.
-  // API routes will now handle their own initialization on first request.
-  // This is better for serverless environments.
 
   const handleLogin = () => setIsLoggedIn(true);
   const handleCoachLogin = () => setIsCoachLoggedIn(true);
