@@ -82,7 +82,7 @@ function LoginPage({ onLogin, onCoachLogin }) {
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
               {/* INCREASED SIZE HERE FROM w-32 h-32 to w-48 h-48 */}
-              <div className="w-48 h-48 mx-auto mb-6 flex items-center justify-center">
+              <div className="w-72 h-72 mx-auto mb-6 flex items-center justify-center">
                 <img 
                   src="/img.png"
                   alt="Dire Crossfit Logo" 
