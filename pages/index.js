@@ -1246,9 +1246,9 @@ export default function App() {
       {!isLoggedIn && !isCoachLoggedIn ? (
         <LoginPage onLogin={handleLogin} onCoachLogin={handleCoachLogin} />
       ) : isCoachLoggedIn ? (
-        <CoachDashboard 
-          onLogout={handleLogout} 
-          customWorkouts={customWorkouts} 
+        <CoachDashboard
+          onLogout={handleLogout}
+          customWorkouts={customWorkouts}
           setCustomWorkouts={setCustomWorkouts}
           workoutPackages={workoutPackages}
           setWorkoutPackages={setWorkoutPackages}
@@ -1256,42 +1256,10 @@ export default function App() {
       ) : !currentUser ? (
         <UserSelection onUserSelect={handleUserSelect} />
       ) : (
-        <WorkoutApp 
-          currentUser={currentUser} 
-          onLogout={handleLogout} 
-          onUserChange={handleUserChange} 
-          customWorkouts={customWorkouts}
-          workoutLogs={workoutLogs}
-          setWorkoutLogs={setWorkoutLogs}
-        />
-      )}
-    </>
-  );
-} = useState(false);
-  const [isCoachLoggedIn, setIsCoachLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [customWorkouts, setCustomWorkouts] = useState({});
-  const [workoutLogs, setWorkoutLogs] = useState([]);
-
-  const handleLogin = () => setIsLoggedIn(true);
-  const handleCoachLogin = () => setIsCoachLoggedIn(true);
-  const handleLogout = () => { setIsLoggedIn(false); setIsCoachLoggedIn(false); setCurrentUser(null); };
-  const handleUserSelect = (user) => setCurrentUser(user);
-  const handleUserChange = () => setCurrentUser(null);
-
-  return (
-    <>
-      {!isLoggedIn && !isCoachLoggedIn ? (
-        <LoginPage onLogin={handleLogin} onCoachLogin={handleCoachLogin} />
-      ) : isCoachLoggedIn ? (
-        <CoachDashboard onLogout={handleLogout} customWorkouts={customWorkouts} setCustomWorkouts={setCustomWorkouts} />
-      ) : !currentUser ? (
-        <UserSelection onUserSelect={handleUserSelect} />
-      ) : (
-        <WorkoutApp 
-          currentUser={currentUser} 
-          onLogout={handleLogout} 
-          onUserChange={handleUserChange} 
+        <WorkoutApp
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onUserChange={handleUserChange}
           customWorkouts={customWorkouts}
           workoutLogs={workoutLogs}
           setWorkoutLogs={setWorkoutLogs}
