@@ -626,10 +626,11 @@ function CalendarView({ customWorkouts, onDateSelect }) {
   );
 }
 
-function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPackages, setWorkoutPackages, users, setUsers }) {
+function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPackages, setWorkoutPackages, users, setUsers, workoutLogs }) {
   const [selectedDate, setSelectedDate] = useState('');
   const [workoutName, setWorkoutName] = useState('');
   const [exercises, setExercises] = useState(['']);
+  const [workoutNotes, setWorkoutNotes] = useState(''); // New state for notes
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [activeTab, setActiveTab] = useState('calendar'); 
   const [showDateModal, setShowDateModal] = useState(false);
@@ -694,6 +695,7 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
         exercises: packageData.exercises,
         focus: packageData.focus,
         duration: packageData.duration,
+        notes: packageData.notes || '', // Include notes from package
         created_by: 'Coach'
       };
 
@@ -715,6 +717,7 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
     setSelectedDate(date);
     setWorkoutName(''); 
     setExercises(['']); 
+    setWorkoutNotes(''); // Reset notes when selecting new date
     setIsCreatingManualWorkout(false); 
     setShowDateModal(true);
   };
@@ -731,7 +734,8 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
         name: workoutName,
         exercises: exercises.filter(e => e.trim()),
         focus: 'Custom', 
-        duration: '30-45 min', 
+        duration: '30-45 min',
+        notes: workoutNotes.trim() || '', // Include notes
         created_by: 'Coach'
       };
 
@@ -746,6 +750,7 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
       setSelectedDate('');
       setWorkoutName('');
       setExercises(['']);
+      setWorkoutNotes(''); // Reset notes
     } catch (err) {
       console.error('Failed to create manual workout:', err); // Debug log
       showNotification('Failed to create workout: ' + err.message, 'error');
@@ -832,6 +837,7 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
           {[
             { id: 'calendar', label: 'Calendar', icon: CalendarDays },
             { id: 'packages', label: 'Workout Packages', icon: BookOpen },
+            { id: 'logs', label: "Today's Logs", icon: Trophy },
             { id: 'users', label: 'Users', icon: Users }
           ].map(tab => {
             const Icon = tab.icon;
@@ -839,11 +845,11 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg transition-all ${
                   activeTab === tab.id ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' : 'text-white/70'
                 }`}
               >
-                <Icon size={16} />
+                <Icon size={14} />
                 <span className="font-medium text-xs">{tab.label}</span>
               </button>
             );
@@ -865,6 +871,101 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                 customWorkouts={customWorkouts} 
                 onDateSelect={handleDateSelect}
               />
+            </div>
+          )}
+
+          {activeTab === 'logs' && (
+            <div className="space-y-6">
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trophy size={24} className="text-white" />
+                </div>
+                <h1 className="text-2xl font-bold text-white mb-2">Today's Workout Logs</h1>
+                <p className="text-white/70">Monitor member activity and performance</p>
+              </div>
+
+              {(() => {
+                const today = new Date().toLocaleDateString();
+                const todaysLogs = workoutLogs?.filter(log => log.date === today) || [];
+                
+                if (todaysLogs.length === 0) {
+                  return (
+                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 text-center">
+                      <div className="text-6xl mb-4">📊</div>
+                      <h3 className="text-xl font-bold text-white mb-2">No Workouts Logged Today</h3>
+                      <p className="text-white/60">Members haven't completed any workouts yet today.</p>
+                    </div>
+                  );
+                }
+
+                // Group logs by workout type
+                const groupedLogs = todaysLogs.reduce((acc, log) => {
+                  if (!acc[log.workout]) acc[log.workout] = [];
+                  acc[log.workout].push(log);
+                  return acc;
+                }, {});
+
+                return (
+                  <div className="space-y-6">
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-green-500/20 border border-green-400/30 rounded-xl p-4 text-center">
+                        <div className="text-2xl font-bold text-green-400">{todaysLogs.length}</div>
+                        <div className="text-green-300 text-sm">Total Workouts</div>
+                      </div>
+                      <div className="bg-blue-500/20 border border-blue-400/30 rounded-xl p-4 text-center">
+                        <div className="text-2xl font-bold text-blue-400">{new Set(todaysLogs.map(log => log.user)).size}</div>
+                        <div className="text-blue-300 text-sm">Active Members</div>
+                      </div>
+                      <div className="bg-purple-500/20 border border-purple-400/30 rounded-xl p-4 text-center">
+                        <div className="text-2xl font-bold text-purple-400">
+                          {Math.round(todaysLogs.reduce((acc, log) => acc + log.duration, 0) / todaysLogs.length) || 0}
+                        </div>
+                        <div className="text-purple-300 text-sm">Avg Time (min)</div>
+                      </div>
+                    </div>
+
+                    {/* Workout Groups */}
+                    {Object.entries(groupedLogs).map(([workoutName, logs]) => (
+                      <div key={workoutName} className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-xl font-bold text-white">{workoutName}</h3>
+                          <span className="bg-white/20 text-white px-3 py-1 rounded-full text-sm">
+                            {logs.length} completed
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {logs
+                            .sort((a, b) => a.duration - b.duration) // Sort by fastest time
+                            .map((log, index) => (
+                            <div key={index} className="bg-black/20 rounded-xl p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                  index === 0 ? 'bg-yellow-500 text-black' : 
+                                  index === 1 ? 'bg-gray-400 text-black' : 
+                                  index === 2 ? 'bg-orange-600 text-white' : 
+                                  'bg-white/20 text-white'
+                                }`}>
+                                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
+                                </div>
+                                <div>
+                                  <div className="text-white font-medium">{log.user}</div>
+                                  <div className="text-white/60 text-sm">Completed at {log.time}</div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-white font-bold">{log.duration} min</div>
+                                <div className="text-white/60 text-sm">{log.completionRate}% complete</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -922,6 +1023,17 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                         )}
                       </div>
                     ))}
+                  </div>
+
+                  <div>
+                    <span className="text-white/80 text-sm mb-2 block">Coach Notes (Optional)</span>
+                    <textarea
+                      value={workoutNotes}
+                      onChange={(e) => setWorkoutNotes(e.target.value)}
+                      placeholder="Add important tips, form cues, or modifications for members..."
+                      className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-purple-400 resize-none"
+                      rows="3"
+                    />
                   </div>
 
                   <button
@@ -1162,6 +1274,70 @@ function CoachDashboard({ onLogout, customWorkouts, setCustomWorkouts, workoutPa
                       ))}
                     </div>
 
+                    <div>
+                      <span className="text-white/80 text-sm mb-2 block">Coach Notes (Optional)</span>
+                      <textarea
+                        value={workoutNotes}
+                        onChange={(e) => setWorkoutNotes(e.target.value)}
+                        placeholder="Add important tips, form cues, or modifications..."
+                        className="w-full bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-purple-400 resize-none"
+                        rows="2"
+                      />
+                    </div>
+
+                    <button
+                      onClick={createManualWorkoutForDate}
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Save size={16} />}
+                      {loading ? 'Saving...' : 'Save Workout'}
+                    </button>
+                    <button
+                      onClick={() => setIsCreatingManualWorkout(false)}
+                      className="w-full mt-2 bg-white/10 text-white py-2 rounded-xl text-sm border border-white/20"
+                    >
+                      <ChevronLeft size={14} className="inline-block mr-2" /> Back to Packages
+                    </button>
+                  </div>-white/50 border border-white/20 rounded-xl py-3 px-4 focus:outline-none focus:border-purple-400"
+                    />
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-white/80 text-sm">Exercises</span>
+                        <button
+                          onClick={() => setExercises([...exercises, ''])}
+                          className="bg-purple-500 text-white px-2 py-1 rounded-lg text-xs flex items-center gap-1"
+                        >
+                          <Plus size={12} />
+                          Add
+                        </button>
+                      </div>
+                      {exercises.map((exercise, index) => (
+                        <div key={index} className="flex gap-2 mb-2">
+                          <input
+                            type="text"
+                            value={exercise}
+                            onChange={(e) => {
+                              const newExercises = [...exercises];
+                              newExercises[index] = e.target.value;
+                              setExercises(newExercises);
+                            }}
+                            placeholder="e.g., Push-ups 3x10"
+                            className="flex-1 bg-black/30 text-white placeholder-white/50 border border-white/20 rounded-lg py-2 px-3 focus:outline-none focus:border-purple-400"
+                          />
+                          {exercises.length > 1 && (
+                            <button
+                              onClick={() => setExercises(exercises.filter((_, i) => i !== index))}
+                              className="bg-red-500/20 text-red-400 px-2 py-2 rounded-lg"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
                     <button
                       onClick={createManualWorkoutForDate}
                       disabled={loading}
@@ -1310,6 +1486,8 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
   const [currentWorkout, setCurrentWorkout] = useState(null);
   const [workoutStartTime, setWorkoutStartTime] = useState(null);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [workoutNotes, setWorkoutNotes] = useState('');
 
   const { loading, error, handleOperation } = useDatabase();
 
@@ -1382,6 +1560,13 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
         isCustom: isCustomWorkout
       });
       setWorkoutStartTime(Date.now());
+      
+      // Check if there are coach notes to show
+      if (todaysWorkout.notes && todaysWorkout.notes.trim()) {
+        setWorkoutNotes(todaysWorkout.notes);
+        setTimeout(() => setShowNotesModal(true), 1500); // Show after greeting
+      }
+      
       showNotification(`${todaysWorkout.name} loaded! 💪`, 'success');
     }
   };
@@ -1646,6 +1831,32 @@ function WorkoutApp({ currentUser, onLogout, onUserChange, customWorkouts, worko
             onSaveLog={handleSaveWorkoutLog}
           />
         )}
+
+        {/* Coach Notes Modal */}
+        {showNotesModal && workoutNotes && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center px-4 z-50">
+            <div className="bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/20 max-w-md w-full">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <BookOpen size={24} className="text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">Coach Notes 📝</h2>
+                <p className="text-white/70">Important tips for today's workout</p>
+              </div>
+
+              <div className="bg-black/20 rounded-xl p-4 mb-6">
+                <p className="text-white leading-relaxed whitespace-pre-wrap">{workoutNotes}</p>
+              </div>
+
+              <button
+                onClick={() => setShowNotesModal(false)}
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-xl font-semibold"
+              >
+                Got it! Let's workout 💪
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -1778,7 +1989,8 @@ export default function App() {
           workoutPackages={workoutPackages}
           setWorkoutPackages={setWorkoutPackages}
           users={users} 
-          setUsers={setUsers} 
+          setUsers={setUsers}
+          workoutLogs={workoutLogs}
         />
       ) : !currentUser ? (
         <UserSelection onUserSelect={handleUserSelect} users={users} /> 
